@@ -1,0 +1,7 @@
+github.com/MakeNowJust/hotkey v0.0.0-20190901154537-dfb5ba96b591 h1:nnkefnMCHVlP2pT9BImdwzheuZqawMumShICEMXYmi8=
+github.com/MakeNowJust/hotkey v0.0.0-20190901154537-dfb5ba96b591/go.mod h1:0rsyU1Bd2nX15GGdZ/ieVlKRED0HSnusBaKyULAJUYQ=
+github.com/lxn/win v0.0.0-20191128105842-2da648fda5b4 h1:5BmtGkQbch91lglMHQ9JIDGiYCL3kBRBA0ItZTvOcEI=
+github.com/lxn/win v0.0.0-20191128105842-2da648fda5b4/go.mod h1:ouWl4wViUNh8tPSIwxTVMuS014WakR1hqvBc2I0bMoA=
+golang.org/x/sys v0.0.0-20190904154756-749cb33beabd/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
+golang.org/x/sys v0.0.0-20200625212154-ddb9806d33ae h1:Ih9Yo4hSPImZOpfGuA4bR/ORKTAbhZo2AbWNRCnevdo=
+golang.org/x/sys v0.0.0-20200625212154-ddb9806d33ae/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
