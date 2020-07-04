@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"log"
+	"math/rand"
 	"time"
 
 	"github.com/MakeNowJust/hotkey"
@@ -14,6 +15,27 @@ import (
 )
 
 func main() {
+	rand.Seed(time.Now().Unix())
+
+	fmt.Println(getRandomFile("sounds/e-epic"))
+}
+
+func getRandomFile(directory string) string {
+	f, err := os.Open(directory)
+	if err != nil {
+		log.Fatal(err)
+	}
+	files, err := f.Readdir(-1)
+	f.Close()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	randomIndex := rand.Intn(len(files))
+	return directory + "/" + files[randomIndex].Name()
+}
+
+func playSfx(path string) {
 	f, err := os.Open("sounds/e-epic/Disney Friend Like Me.mp3")
 	if err != nil {
 		log.Fatal(err)
