@@ -8,8 +8,8 @@ import (
 
 	"github.com/MakeNowJust/hotkey"
 	"github.com/faiface/beep"
-	"github.com/faiface/beep/mp3"
 	"github.com/faiface/beep/speaker"
+	"github.com/faiface/beep/vorbis"
 
 	"os"
 )
@@ -17,7 +17,7 @@ import (
 func main() {
 	rand.Seed(time.Now().Unix())
 
-	fmt.Println(getRandomFile("sounds/e-epic"))
+	playSfx(getRandomFile("sounds/e-epic"))
 }
 
 func getRandomFile(directory string) string {
@@ -36,12 +36,12 @@ func getRandomFile(directory string) string {
 }
 
 func playSfx(path string) {
-	f, err := os.Open("sounds/e-epic/Disney Friend Like Me.mp3")
+	f, err := os.Open(path)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	streamer, format, err := mp3.Decode(f)
+	streamer, format, err := vorbis.Decode(f)
 	if err != nil {
 		log.Fatal(err)
 	}
