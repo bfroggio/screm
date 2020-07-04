@@ -14,6 +14,8 @@ import (
 	"os"
 )
 
+var ctrl = &beep.Ctrl{}
+
 func main() {
 	rand.Seed(time.Now().Unix())
 
@@ -24,6 +26,10 @@ func main() {
 	hkey.Register(hotkey.Alt, 'Q', func() {
 		fmt.Println("Quit")
 		quit <- true
+	})
+
+	hkey.Register(hotkey.Alt, hotkey.SPACE, func() {
+		ctrl = &beep.Ctrl{}
 	})
 
 	// TODO: Dynamically generate these based on directory structure
@@ -80,9 +86,8 @@ func playSfx(path string) {
 	resampled := beep.Resample(4, format.SampleRate, sr, streamer)
 
 	done := make(chan bool)
-	speaker.Play(beep.Seq(resampled, beep.Callback(func() {
-		done <- true
-	})))
+	ctrl = &beep.Ctrl{Streamer: beep.Seq(resampled, beep.Callback(func() { done <- true })), Paused: false}
+	speaker.Play(ctrl)
 
 	<-done
 }
