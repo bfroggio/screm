@@ -29,12 +29,14 @@ var ctrl = &beep.Ctrl{}
 func main() {
 	rand.Seed(time.Now().Unix())
 
-	err := configureTwitch()
-	if err != nil {
-		log.Fatal("Could not connect to Twitch:", err.Error())
-	}
+	go func() {
+		err := configureTwitch()
+		if err != nil {
+			log.Fatal("Could not connect to Twitch:", err.Error())
+		}
+	}()
 
-	err = configureShortcuts()
+	err := configureShortcuts()
 	if err != nil {
 		log.Fatal("Could not configure shortcuts:", err.Error())
 	}
@@ -53,8 +55,8 @@ func configureTwitch() error {
 		for _, soundCategory := range allSoundDirectories {
 			// Remove the first character and the dash from the directory name
 			if strings.Contains(strings.ToLower(message.Message), soundCategory[2:]) {
-				fmt.Println("Playing a \"" + soundCategory + "\" sound at " + message.User.Name + "'s request")
-				playSfx(soundCategory)
+				log.Println("Playing a \"" + soundCategory + "\" sound at " + message.User.Name + "'s request")
+				randomSfx(soundCategory)()
 			}
 		}
 	})
@@ -133,6 +135,8 @@ func playSfx(path string) error {
 	speaker.Init(sr, sr.N(time.Second/10))
 
 	resampled := beep.Resample(4, format.SampleRate, sr, streamer)
+
+	log.Println("Playing " + path)
 
 	done := make(chan bool)
 	ctrl = &beep.Ctrl{Streamer: beep.Seq(resampled, beep.Callback(func() { done <- true })), Paused: false}
