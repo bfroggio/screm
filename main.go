@@ -6,7 +6,9 @@ import (
 	"math/rand"
 	"strings"
 	"time"
+	"unicode"
 
+	"github.com/MakeNowJust/hotkey"
 	"github.com/faiface/beep"
 	"github.com/faiface/beep/flac"
 	"github.com/faiface/beep/mp3"
@@ -18,9 +20,10 @@ import (
 	"os"
 )
 
+const twitchUsername string = "bfroggio"
 const soundsDir string = "sounds"
 
-// var hkey = hotkey.New()
+var hkey = hotkey.New()
 var ctrl = &beep.Ctrl{}
 
 func main() {
@@ -56,7 +59,7 @@ func configureTwitch() error {
 		}
 	})
 
-	client.Join("xqcow")
+	client.Join(twitchUsername)
 
 	err = client.Connect()
 	if err != nil {
@@ -67,26 +70,24 @@ func configureTwitch() error {
 }
 
 func configureShortcuts() error {
-	/*
-		quit := make(chan bool)
+	quit := make(chan bool)
 
-		fmt.Println("Push Shift+Alt+Q to quit")
-		hkey.Register(hotkey.Shift+hotkey.Alt, 'Q', func() {
-			fmt.Println("Quit")
-			quit <- true
-		})
+	fmt.Println("Push Shift+Alt+Q to quit")
+	hkey.Register(hotkey.Shift+hotkey.Alt, 'Q', func() {
+		fmt.Println("Quit")
+		quit <- true
+	})
 
-		hkey.Register(hotkey.Alt, hotkey.SPACE, func() {
-			ctrl = &beep.Ctrl{}
-		})
+	hkey.Register(hotkey.Alt, hotkey.SPACE, func() {
+		ctrl = &beep.Ctrl{}
+	})
 
-		err := registerShortcuts()
-		if err != nil {
-			return err
-		}
+	err := registerShortcuts()
+	if err != nil {
+		return err
+	}
 
-		<-quit // Keep the program alive until we kill it with a keyboard shortcut
-	*/
+	<-quit // Keep the program alive until we kill it with a keyboard shortcut
 
 	return nil
 }
@@ -100,7 +101,7 @@ func registerShortcuts() error {
 	for _, dir := range allFiles {
 		if dir.IsDir() {
 			// TODO: Make sure the uint32 cast works
-			// hkey.Register(hotkey.Alt, uint32(unicode.ToUpper(rune(dir.Name()[0]))), randomSfx(dir.Name()))
+			hkey.Register(hotkey.Alt, uint32(unicode.ToUpper(rune(dir.Name()[0]))), randomSfx(dir.Name()))
 		}
 	}
 
