@@ -29,6 +29,8 @@ var ctrl = &beep.Ctrl{}
 func main() {
 	rand.Seed(time.Now().Unix())
 
+	readConfigFile()
+
 	go func() {
 		err := configureTwitch()
 		if err != nil {
@@ -44,7 +46,7 @@ func main() {
 
 func readConfigFile() {
 	viper.SetConfigName("config") // name of config file (without extension)
-	viper.SetConfigType("yaml")   // REQUIRED if the config file does not have the extension in the name
+	viper.SetConfigType("toml")   // REQUIRED if the config file does not have the extension in the name
 	viper.AddConfigPath(".")      // optionally look for config in the working directory
 	err := viper.ReadInConfig()   // Find and read the config file
 	if err != nil {               // Handle errors reading the config file
@@ -58,17 +60,23 @@ func configureTwitch() error {
 		return err
 	}
 
-	client := twitch.NewAnonymousClient()
+	client := &twitch.Client{}
+	if len(viper.GetString("twitch_secret")) > 0 {
+		client = twitch.NewClient(viper.GetString("twitch_username"), viper.GetString("twitch_secret"))
+	} else {
+		client = twitch.NewAnonymousClient()
+	}
+
+	client.OnUserJoinMessage(func(message twitch.UserJoinMessage) {
+		if len(viper.GetString("twitch_secret")) > 0 {
+			twitchHelp := generateTwitchHelp(message.User, allSoundDirectories)
+			client.Say(viper.GetString("twitch_username"), twitchHelp)
+		}
+	})
 
 	client.OnPrivateMessage(func(message twitch.PrivateMessage) {
-		// TODO: Limit to only approved users (by message.User.Name)
-		for _, soundCategory := range allSoundDirectories {
-			// Remove the first character and the dash from the directory name
-			if strings.Contains(strings.ToLower(message.Message), soundCategory[2:]) {
-				log.Println("Playing a \"" + soundCategory + "\" sound at " + message.User.Name + "'s request")
-				randomSfx(soundCategory)()
-			}
-		}
+		notify()
+		executeTwitchMessage(message, allSoundDirectories)
 	})
 
 	client.Join(viper.GetString("twitch_username"))
@@ -79,6 +87,34 @@ func configureTwitch() error {
 	}
 
 	return nil
+}
+
+func generateTwitchHelp(user string, allSoundDirectories []string) string {
+	// TODO: Limit to only approved users (by message.User.Name)
+	helpMessage := "Welcome, " + user + "! You can request a sound effect to be played in the stream by typing certain keywords in chat.\n"
+
+	for _, soundCategory := range allSoundDirectories {
+		helpMessage = helpMessage + "\n- \"" + soundCategory[2:] + "\" (or \"" + string(soundCategory[0]) + "\" for short)"
+	}
+
+	return helpMessage
+}
+
+func notify() {
+	playSfx(soundsDir + "/chat-notification.ogg")
+}
+
+func executeTwitchMessage(message twitch.PrivateMessage, allSoundDirectories []string) {
+	log.Println("Got message:", message.Message)
+
+	// TODO: Limit to only approved users (by message.User.Name)
+	for _, soundCategory := range allSoundDirectories {
+		// Remove the first character and the dash from the directory name
+		if message.Message == string(soundCategory[0]) || strings.Contains(strings.ToLower(message.Message), soundCategory[2:]) || strings.Contains(soundCategory[2:], strings.ToLower(message.Message)) {
+			log.Println("Playing a \"" + soundCategory + "\" sound at " + message.User.Name + "'s request")
+			randomSfx(soundCategory)()
+		}
+	}
 }
 
 func configureShortcuts() error {
