@@ -16,11 +16,11 @@ import (
 	"github.com/faiface/beep/vorbis"
 	"github.com/faiface/beep/wav"
 	"github.com/gempir/go-twitch-irc/v2"
+	"github.com/spf13/viper"
 
 	"os"
 )
 
-const twitchUsername string = "bfroggio"
 const soundsDir string = "sounds"
 
 var hkey = hotkey.New()
@@ -39,6 +39,16 @@ func main() {
 	err := configureShortcuts()
 	if err != nil {
 		log.Fatal("Could not configure shortcuts:", err.Error())
+	}
+}
+
+func readConfigFile() {
+	viper.SetConfigName("config") // name of config file (without extension)
+	viper.SetConfigType("yaml")   // REQUIRED if the config file does not have the extension in the name
+	viper.AddConfigPath(".")      // optionally look for config in the working directory
+	err := viper.ReadInConfig()   // Find and read the config file
+	if err != nil {               // Handle errors reading the config file
+		log.Fatal("Fatal error reading config file:", err.Error())
 	}
 }
 
@@ -61,7 +71,7 @@ func configureTwitch() error {
 		}
 	})
 
-	client.Join(twitchUsername)
+	client.Join(viper.GetString("twitch_username"))
 
 	err = client.Connect()
 	if err != nil {
