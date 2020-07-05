@@ -6,47 +6,93 @@ import (
 	"math/rand"
 	"strings"
 	"time"
-	"unicode"
 
-	"github.com/MakeNowJust/hotkey"
 	"github.com/faiface/beep"
 	"github.com/faiface/beep/flac"
 	"github.com/faiface/beep/mp3"
 	"github.com/faiface/beep/speaker"
 	"github.com/faiface/beep/vorbis"
 	"github.com/faiface/beep/wav"
+	"github.com/gempir/go-twitch-irc/v2"
 
 	"os"
 )
 
-var hkey = hotkey.New()
+const soundsDir string = "sounds"
+
+// var hkey = hotkey.New()
 var ctrl = &beep.Ctrl{}
 
 func main() {
 	rand.Seed(time.Now().Unix())
 
-	quit := make(chan bool)
-
-	fmt.Println("Push Shift+Alt+Q to quit")
-	hkey.Register(hotkey.Shift+hotkey.Alt, 'Q', func() {
-		fmt.Println("Quit")
-		quit <- true
-	})
-
-	hkey.Register(hotkey.Alt, hotkey.SPACE, func() {
-		ctrl = &beep.Ctrl{}
-	})
-
-	err := registerShortcuts()
+	err := configureTwitch()
 	if err != nil {
-		log.Fatal("Could not read sound file directories:", err.Error())
+		log.Fatal("Could not connect to Twitch:", err.Error())
 	}
 
-	<-quit // Keep the program alive until we kill it with a keyboard shortcut
+	err = configureShortcuts()
+	if err != nil {
+		log.Fatal("Could not configure shortcuts:", err.Error())
+	}
+}
+
+func configureTwitch() error {
+	allSoundDirectories, err := getSoundDirectories()
+	if err != nil {
+		return err
+	}
+
+	client := twitch.NewAnonymousClient()
+
+	client.OnPrivateMessage(func(message twitch.PrivateMessage) {
+		// TODO: Limit to only approved users (by message.User.Name)
+		for _, soundCategory := range allSoundDirectories {
+			// Remove the first character and the dash from the directory name
+			if strings.Contains(strings.ToLower(message.Message), soundCategory[2:]) {
+				fmt.Println("Playing a \"" + soundCategory + "\" sound at " + message.User.Name + "'s request")
+				playSfx(soundCategory)
+			}
+		}
+	})
+
+	client.Join("xqcow")
+
+	err = client.Connect()
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func configureShortcuts() error {
+	/*
+		quit := make(chan bool)
+
+		fmt.Println("Push Shift+Alt+Q to quit")
+		hkey.Register(hotkey.Shift+hotkey.Alt, 'Q', func() {
+			fmt.Println("Quit")
+			quit <- true
+		})
+
+		hkey.Register(hotkey.Alt, hotkey.SPACE, func() {
+			ctrl = &beep.Ctrl{}
+		})
+
+		err := registerShortcuts()
+		if err != nil {
+			return err
+		}
+
+		<-quit // Keep the program alive until we kill it with a keyboard shortcut
+	*/
+
+	return nil
 }
 
 func registerShortcuts() error {
-	allFiles, err := getFiles("sounds")
+	allFiles, err := getFiles(soundsDir)
 	if err != nil {
 		return err
 	}
@@ -54,7 +100,7 @@ func registerShortcuts() error {
 	for _, dir := range allFiles {
 		if dir.IsDir() {
 			// TODO: Make sure the uint32 cast works
-			hkey.Register(hotkey.Alt, uint32(unicode.ToUpper(rune(dir.Name()[0]))), randomSfx(dir.Name()))
+			// hkey.Register(hotkey.Alt, uint32(unicode.ToUpper(rune(dir.Name()[0]))), randomSfx(dir.Name()))
 		}
 	}
 
@@ -63,7 +109,7 @@ func registerShortcuts() error {
 
 func randomSfx(directory string) func() {
 	return func() {
-		randomFile, err := getRandomFile("sounds/" + directory)
+		randomFile, err := getRandomFile(soundsDir + "/" + directory)
 		if err != nil {
 			log.Println("Error reading file")
 		}
@@ -126,6 +172,23 @@ func getFiles(directory string) ([]os.FileInfo, error) {
 	}
 
 	return allFiles, nil
+}
+
+func getSoundDirectories() ([]string, error) {
+	categories := []string{}
+
+	allFiles, err := getFiles(soundsDir)
+	if err != nil {
+		return []string{}, err
+	}
+
+	for _, file := range allFiles {
+		if file.IsDir() {
+			categories = append(categories, file.Name())
+		}
+	}
+
+	return categories, nil
 }
 
 func getRandomFile(directory string) (string, error) {
