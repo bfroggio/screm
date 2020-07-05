@@ -6,6 +6,7 @@ import (
 	"math/rand"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/MakeNowJust/hotkey"
 	"github.com/faiface/beep"
@@ -18,12 +19,11 @@ import (
 	"os"
 )
 
+var hkey = hotkey.New()
 var ctrl = &beep.Ctrl{}
 
 func main() {
 	rand.Seed(time.Now().Unix())
-
-	hkey := hotkey.New()
 
 	quit := make(chan bool)
 
@@ -37,22 +37,27 @@ func main() {
 		ctrl = &beep.Ctrl{}
 	})
 
-	// TODO: Dynamically generate these based on directory structure
-	hkey.Register(hotkey.Alt, 'D', randomSfx("d-defeat"))
-	hkey.Register(hotkey.Alt, 'E', randomSfx("e-epic"))
-	hkey.Register(hotkey.Alt, 'F', randomSfx("f-fail"))
-	hkey.Register(hotkey.Alt, 'G', randomSfx("g-greetings"))
-	hkey.Register(hotkey.Alt, 'J', randomSfx("j-jingles"))
-	hkey.Register(hotkey.Alt, 'M', randomSfx("m-music"))
-	hkey.Register(hotkey.Alt, 'R', randomSfx("r-random"))
-	hkey.Register(hotkey.Alt, 'S', randomSfx("s-success"))
-	hkey.Register(hotkey.Alt, 'T', randomSfx("t-fortnite"))
-	hkey.Register(hotkey.Alt, 'U', randomSfx("u-upset"))
+	err := registerShortcuts()
+	if err != nil {
+		log.Fatal("Could not read sound file directories:", err.Error())
+	}
 
 	<-quit // Keep the program alive until we kill it with a keyboard shortcut
 }
 
 func registerShortcuts() error {
+	allFiles, err := getFiles("sounds")
+	if err != nil {
+		return err
+	}
+
+	for _, dir := range allFiles {
+		if dir.IsDir() {
+			// TODO: Make sure the uint32 cast works
+			hkey.Register(hotkey.Alt, uint32(unicode.ToUpper(rune(dir.Name()[0]))), randomSfx(dir.Name()))
+		}
+	}
+
 	return nil
 }
 
