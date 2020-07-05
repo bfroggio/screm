@@ -75,8 +75,9 @@ func configureTwitch() error {
 	})
 
 	client.OnPrivateMessage(func(message twitch.PrivateMessage) {
-		notify()
-		executeTwitchMessage(message, allSoundDirectories)
+		if !executeTwitchMessage(message, allSoundDirectories) {
+			notify()
+		}
 	})
 
 	client.Join(viper.GetString("twitch_username"))
@@ -91,20 +92,20 @@ func configureTwitch() error {
 
 func generateTwitchHelp(user string, allSoundDirectories []string) string {
 	// TODO: Limit to only approved users (by message.User.Name)
-	helpMessage := "Welcome, " + user + "! You can request a sound effect to be played in the stream by typing certain keywords in chat.\n"
+	helpMessage := "Welcome, " + user + "! You can play a sound effect in the stream by typing keywords: "
 
 	for _, soundCategory := range allSoundDirectories {
-		helpMessage = helpMessage + "\n- \"" + soundCategory[2:] + "\" (or \"" + string(soundCategory[0]) + "\" for short)"
+		helpMessage = helpMessage + soundCategory[2:] + " (" + string(soundCategory[0]) + "), "
 	}
 
-	return helpMessage
+	return strings.TrimSuffix(helpMessage, ", ")
 }
 
 func notify() {
 	playSfx(soundsDir + "/chat-notification.ogg")
 }
 
-func executeTwitchMessage(message twitch.PrivateMessage, allSoundDirectories []string) {
+func executeTwitchMessage(message twitch.PrivateMessage, allSoundDirectories []string) bool {
 	log.Println("Got message:", message.Message)
 
 	// TODO: Limit to only approved users (by message.User.Name)
@@ -113,8 +114,11 @@ func executeTwitchMessage(message twitch.PrivateMessage, allSoundDirectories []s
 		if message.Message == string(soundCategory[0]) || strings.Contains(strings.ToLower(message.Message), soundCategory[2:]) || strings.Contains(soundCategory[2:], strings.ToLower(message.Message)) {
 			log.Println("Playing a \"" + soundCategory + "\" sound at " + message.User.Name + "'s request")
 			randomSfx(soundCategory)()
+			return true
 		}
 	}
+
+	return false
 }
 
 func configureShortcuts() error {

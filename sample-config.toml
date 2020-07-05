@@ -1,2 +1,2 @@
 twitch_username = "bfroggio"
-twitch_secret = "12345"
+twitch_secret = "oauth:12345"
