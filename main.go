@@ -27,7 +27,8 @@ func main() {
 
 	quit := make(chan bool)
 
-	hkey.Register(hotkey.Alt, 'Q', func() {
+	fmt.Println("Push Shift+Alt+Q to quit")
+	hkey.Register(hotkey.Shift+hotkey.Alt, 'Q', func() {
 		fmt.Println("Quit")
 		quit <- true
 	})
@@ -48,8 +49,11 @@ func main() {
 	hkey.Register(hotkey.Alt, 'T', randomSfx("t-fortnite"))
 	hkey.Register(hotkey.Alt, 'U', randomSfx("u-upset"))
 
-	fmt.Println("Push Alt-Q to escape and quit")
-	<-quit
+	<-quit // Keep the program alive until we kill it with a keyboard shortcut
+}
+
+func registerShortcuts() error {
+	return nil
 }
 
 func randomSfx(directory string) func() {
@@ -104,17 +108,27 @@ func decodeFile(path string) (beep.StreamSeekCloser, beep.Format, error) {
 	return vorbis.Decode(f)
 }
 
-func getRandomFile(directory string) (string, error) {
-	f, err := os.Open(directory)
+func getFiles(directory string) ([]os.FileInfo, error) {
+	openedDirectory, err := os.Open(directory)
 	if err != nil {
-		return "", err
+		return []os.FileInfo{}, err
 	}
-	files, err := f.Readdir(-1)
-	f.Close()
+
+	allFiles, err := openedDirectory.Readdir(-1)
+	openedDirectory.Close()
+	if err != nil {
+		return []os.FileInfo{}, err
+	}
+
+	return allFiles, nil
+}
+
+func getRandomFile(directory string) (string, error) {
+	allFiles, err := getFiles(directory)
 	if err != nil {
 		return "", err
 	}
 
-	randomIndex := rand.Intn(len(files))
-	return directory + "/" + files[randomIndex].Name(), nil
+	randomIndex := rand.Intn(len(allFiles))
+	return directory + "/" + allFiles[randomIndex].Name(), nil
 }
