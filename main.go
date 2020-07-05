@@ -102,7 +102,6 @@ func registerShortcuts() error {
 
 	for _, dir := range allFiles {
 		if dir.IsDir() {
-			// TODO: Make sure the uint32 cast works
 			hkey.Register(hotkey.Alt, uint32(unicode.ToUpper(rune(dir.Name()[0]))), randomSfx(dir.Name()))
 		}
 	}
