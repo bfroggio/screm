@@ -4,12 +4,16 @@ import (
 	"fmt"
 	"log"
 	"math/rand"
+	"strings"
 	"time"
 
 	"github.com/MakeNowJust/hotkey"
 	"github.com/faiface/beep"
+	"github.com/faiface/beep/flac"
+	"github.com/faiface/beep/mp3"
 	"github.com/faiface/beep/speaker"
 	"github.com/faiface/beep/vorbis"
+	"github.com/faiface/beep/wav"
 
 	"os"
 )
@@ -69,12 +73,7 @@ func getRandomFile(directory string) string {
 }
 
 func playSfx(path string) {
-	f, err := os.Open(path)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	streamer, format, err := vorbis.Decode(f)
+	streamer, format, err := decodeFile(path)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -90,4 +89,21 @@ func playSfx(path string) {
 	speaker.Play(ctrl)
 
 	<-done
+}
+
+func decodeFile(path string) (beep.StreamSeekCloser, beep.Format, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	if strings.Contains(path, ".flac") {
+		return flac.Decode(f)
+	} else if strings.Contains(path, ".wav") {
+		return wav.Decode(f)
+	} else if strings.Contains(path, ".mp3") {
+		return mp3.Decode(f)
+	}
+
+	return vorbis.Decode(f)
 }
