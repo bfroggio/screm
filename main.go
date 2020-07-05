@@ -53,29 +53,23 @@ func main() {
 }
 
 func randomSfx(directory string) func() {
-	// TODO: Bubble errors
-	return func() { playSfx(getRandomFile("sounds/" + directory)) }
+	return func() {
+		randomFile, err := getRandomFile("sounds/" + directory)
+		if err != nil {
+			log.Println("Error reading file")
+		}
+
+		err = playSfx(randomFile)
+		if err != nil {
+			log.Println("Error playing file:", err.Error())
+		}
+	}
 }
 
-func getRandomFile(directory string) string {
-	f, err := os.Open(directory)
-	if err != nil {
-		log.Fatal(err)
-	}
-	files, err := f.Readdir(-1)
-	f.Close()
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	randomIndex := rand.Intn(len(files))
-	return directory + "/" + files[randomIndex].Name()
-}
-
-func playSfx(path string) {
+func playSfx(path string) error {
 	streamer, format, err := decodeFile(path)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 	defer streamer.Close()
 
@@ -88,13 +82,15 @@ func playSfx(path string) {
 	ctrl = &beep.Ctrl{Streamer: beep.Seq(resampled, beep.Callback(func() { done <- true })), Paused: false}
 	speaker.Play(ctrl)
 
-	<-done
+	<-done // Block until the sound file is done playing
+
+	return nil
 }
 
 func decodeFile(path string) (beep.StreamSeekCloser, beep.Format, error) {
 	f, err := os.Open(path)
 	if err != nil {
-		log.Fatal(err)
+		return nil, beep.Format{}, err
 	}
 
 	if strings.Contains(path, ".flac") {
@@ -106,4 +102,19 @@ func decodeFile(path string) (beep.StreamSeekCloser, beep.Format, error) {
 	}
 
 	return vorbis.Decode(f)
+}
+
+func getRandomFile(directory string) (string, error) {
+	f, err := os.Open(directory)
+	if err != nil {
+		return "", err
+	}
+	files, err := f.Readdir(-1)
+	f.Close()
+	if err != nil {
+		return "", err
+	}
+
+	randomIndex := rand.Intn(len(files))
+	return directory + "/" + files[randomIndex].Name(), nil
 }
