@@ -24,7 +24,6 @@ import (
 const soundsDir string = "sounds"
 
 var hkey = hotkey.New()
-var ctrl = &beep.Ctrl{}
 var quit = make(chan bool)
 
 func main() {
@@ -135,7 +134,8 @@ func configureShortcuts() error {
 	})
 
 	hkey.Register(hotkey.Alt, hotkey.SPACE, func() {
-		ctrl = &beep.Ctrl{}
+		// TODO: This is dirty, see TODO below
+		playSfx("")
 	})
 
 	err := registerShortcuts()
@@ -178,6 +178,11 @@ func randomSfx(directory string) func() {
 func playSfx(path string) error {
 	// TODO: Figure out a cleaner way to stop a sound effect and play another (this Goroutine is dirty)
 	go func() error {
+		// TODO: Figure out a better way to stop playing sound effects
+		if len(path) == 0 {
+			path = soundsDir + "/silence.ogg"
+		}
+
 		streamer, format, err := decodeFile(path)
 		if err != nil {
 			return err
