@@ -25,6 +25,7 @@ const soundsDir string = "sounds"
 
 var hkey = hotkey.New()
 var ctrl = &beep.Ctrl{}
+var quit = make(chan bool)
 
 func main() {
 	rand.Seed(time.Now().Unix())
@@ -38,10 +39,14 @@ func main() {
 		}
 	}()
 
-	err := configureShortcuts()
-	if err != nil {
-		log.Fatal("Could not configure shortcuts:", err.Error())
-	}
+	go func() {
+		err := configureShortcuts()
+		if err != nil {
+			log.Fatal("Could not configure shortcuts:", err.Error())
+		}
+	}()
+
+	<-quit // Keep the program alive until we kill it with a keyboard shortcut
 }
 
 func readConfigFile() {
@@ -102,7 +107,8 @@ func generateTwitchHelp(user string, allSoundDirectories []string) string {
 }
 
 func notify() {
-	playSfx(soundsDir + "/chat-notification.ogg")
+	// TODO: Make this play over top other sound effects
+	// playSfx(soundsDir + "/chat-notification.ogg")
 }
 
 func executeTwitchMessage(message twitch.PrivateMessage, allSoundDirectories []string) bool {
@@ -122,8 +128,6 @@ func executeTwitchMessage(message twitch.PrivateMessage, allSoundDirectories []s
 }
 
 func configureShortcuts() error {
-	quit := make(chan bool)
-
 	fmt.Println("Push Shift+Alt+Q to quit")
 	hkey.Register(hotkey.Shift+hotkey.Alt, 'Q', func() {
 		fmt.Println("Quit")
@@ -138,8 +142,6 @@ func configureShortcuts() error {
 	if err != nil {
 		return err
 	}
-
-	<-quit // Keep the program alive until we kill it with a keyboard shortcut
 
 	return nil
 }
@@ -174,24 +176,28 @@ func randomSfx(directory string) func() {
 }
 
 func playSfx(path string) error {
-	streamer, format, err := decodeFile(path)
-	if err != nil {
-		return err
-	}
-	defer streamer.Close()
+	// TODO: Figure out a cleaner way to stop a sound effect and play another (this Goroutine is dirty)
+	go func() error {
+		streamer, format, err := decodeFile(path)
+		if err != nil {
+			return err
+		}
+		defer streamer.Close()
 
-	sr := format.SampleRate * 2
-	speaker.Init(sr, sr.N(time.Second/10))
+		sr := format.SampleRate * 2
+		speaker.Init(sr, sr.N(time.Second/10))
 
-	resampled := beep.Resample(4, format.SampleRate, sr, streamer)
+		resampled := beep.Resample(4, format.SampleRate, sr, streamer)
 
-	log.Println("Playing " + path)
+		log.Println("Playing " + path)
 
-	done := make(chan bool)
-	ctrl = &beep.Ctrl{Streamer: beep.Seq(resampled, beep.Callback(func() { done <- true })), Paused: false}
-	speaker.Play(ctrl)
+		done := make(chan bool)
+		speaker.Play(beep.Seq(resampled, beep.Callback(func() { done <- true })))
 
-	<-done // Block until the sound file is done playing
+		<-done // Block until the sound file is done playing
+
+		return nil
+	}()
 
 	return nil
 }
