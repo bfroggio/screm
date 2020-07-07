@@ -26,6 +26,7 @@ const soundsDir string = "sounds"
 var hkey = hotkey.New()
 var quit = make(chan bool)
 var lastSampleRate beep.SampleRate
+var done = make(chan bool)
 
 func main() {
 	rand.Seed(time.Now().Unix())
@@ -148,8 +149,9 @@ func configureShortcuts() error {
 	})
 
 	hkey.Register(hotkey.Alt, hotkey.SPACE, func() {
-		// TODO: This is dirty, see TODO below
-		playSfx("")
+		if len(done) == 0 {
+			done <- true
+		}
 	})
 
 	err := registerShortcuts()
@@ -187,7 +189,6 @@ func configureSpeaker() error {
 	speaker.Init(format.SampleRate, format.SampleRate.N(time.Second/10))
 	lastSampleRate = format.SampleRate
 
-	done := make(chan bool)
 	speaker.Play(beep.Seq(streamer, beep.Callback(func() { done <- true })))
 	<-done // Block until the sound file is done playing
 
@@ -209,11 +210,6 @@ func randomSfx(directory string) func() {
 }
 
 func playSfx(path string) error {
-	// TODO: Figure out a better way to stop playing sound effects
-	if len(path) == 0 {
-		path = soundsDir + "/silence.ogg"
-	}
-
 	streamer, format, err := decodeFile(path)
 	if err != nil {
 		return err
@@ -225,9 +221,8 @@ func playSfx(path string) error {
 
 	log.Println("Playing " + path)
 
-	done := make(chan bool)
 	speaker.Play(beep.Seq(resampled, beep.Callback(func() { done <- true })))
-	<-done // Block until the sound file is done playing
+	<-done
 
 	return nil
 }
