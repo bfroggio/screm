@@ -25,8 +25,9 @@ const soundsDir string = "sounds"
 
 var hkey = hotkey.New()
 var quit = make(chan bool)
-var done = make(chan bool)
 var lastSampleRate beep.SampleRate
+var done = make(chan bool)
+var pause = make(chan bool)
 
 func main() {
 	rand.Seed(time.Now().Unix())
@@ -118,6 +119,7 @@ func generateTwitchHelp(user string, allSoundDirectories []string) string {
 }
 
 func notify() {
+	// TODO: Make this play over top other sound effects
 	playSfx(soundsDir + "/chat-notification.ogg")
 }
 
@@ -147,7 +149,7 @@ func configureShortcuts() error {
 	})
 
 	hkey.Register(hotkey.Alt, hotkey.SPACE, func() {
-		done <- true
+		pause <- true
 	})
 
 	err := registerShortcuts()
@@ -210,13 +212,13 @@ func randomSfx(directory string) func() {
 }
 
 func playSfx(path string) error {
-	streamer, format, err := decodeFile(path)
-	if err != nil {
-		return err
-	}
-	defer streamer.Close()
+	go func() error {
+		streamer, format, err := decodeFile(path)
+		if err != nil {
+			return err
+		}
+		defer streamer.Close()
 
-	go func(streamer beep.StreamSeekCloser, format beep.Format) {
 		resampled := beep.Resample(4, lastSampleRate, format.SampleRate, streamer)
 		lastSampleRate = format.SampleRate
 
@@ -225,9 +227,17 @@ func playSfx(path string) error {
 		ctrl := &beep.Ctrl{Streamer: beep.Seq(resampled, beep.Callback(func() { done <- true })), Paused: false}
 		speaker.Play(ctrl)
 
-		<-done
-		return
-	}(streamer, format)
+		for {
+			select {
+			case <-done:
+				return nil
+			case <-pause:
+				speaker.Lock()
+				ctrl.Paused = !ctrl.Paused
+				speaker.Unlock()
+			}
+		}
+	}()
 
 	return nil
 }
