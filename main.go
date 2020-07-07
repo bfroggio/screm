@@ -234,7 +234,9 @@ func playSfx(path string) error {
 			case <-done:
 				return nil
 			case <-pause:
-				return nil
+				speaker.Lock()
+				ctrl.Streamer = nil
+				speaker.Unlock()
 			}
 		}
 	}()
