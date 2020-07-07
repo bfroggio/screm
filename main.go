@@ -216,7 +216,7 @@ func playSfx(path string) error {
 	}
 	defer streamer.Close()
 
-	go func() {
+	go func(streamer beep.StreamSeekCloser, format beep.Format) {
 		resampled := beep.Resample(4, lastSampleRate, format.SampleRate, streamer)
 		lastSampleRate = format.SampleRate
 
@@ -227,7 +227,7 @@ func playSfx(path string) error {
 
 		<-done
 		return
-	}()
+	}(streamer, format)
 
 	return nil
 }
