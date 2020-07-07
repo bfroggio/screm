@@ -122,12 +122,15 @@ func notify() {
 }
 
 func executeTwitchMessage(message twitch.PrivateMessage, allSoundDirectories []string) bool {
-	log.Println("Got message:", message.Message)
+	messageContent := strings.ToLower(message.Message)
+	log.Println("Got message:", messageContent)
 
 	// TODO: Limit to only approved users (by message.User.Name)
 	for _, soundCategory := range allSoundDirectories {
-		// Remove the first character and the dash from the directory name
-		if message.Message == string(soundCategory[0]) || strings.Contains(strings.ToLower(message.Message), soundCategory[2:]) || strings.Contains(soundCategory[2:], strings.ToLower(message.Message)) {
+		categoryShortcut := strings.ToLower(string(soundCategory[0]))
+		categoryName := strings.ToLower(string(soundCategory[2:]))
+
+		if messageContent == categoryShortcut || messageContent == categoryName {
 			log.Println("Playing a \"" + soundCategory + "\" sound at " + message.User.Name + "'s request")
 			randomSfx(soundCategory)()
 			return true
