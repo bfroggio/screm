@@ -28,6 +28,7 @@ var quit = make(chan bool)
 var lastSampleRate beep.SampleRate
 var done = make(chan bool)
 var pause = make(chan bool)
+var ctrl = &beep.Ctrl{}
 
 func main() {
 	rand.Seed(time.Now().Unix())
@@ -226,11 +227,16 @@ func playSfx(path string, replace bool) error {
 		log.Println("Playing " + path)
 
 		if replace {
-			pause <- true
+			speaker.Lock()
+			ctrl = &beep.Ctrl{Streamer: beep.Seq(resampled, beep.Callback(func() { done <- true })), Paused: false}
+			speaker.Unlock()
+			speaker.Play(ctrl)
+		} else {
+			speaker.Lock()
+			newCtrl := &beep.Ctrl{Streamer: beep.Seq(resampled, beep.Callback(func() { done <- true })), Paused: false}
+			speaker.Unlock()
+			speaker.Play(newCtrl)
 		}
-
-		ctrl := &beep.Ctrl{Streamer: beep.Seq(resampled, beep.Callback(func() { done <- true })), Paused: false}
-		speaker.Play(ctrl)
 
 		for {
 			select {
