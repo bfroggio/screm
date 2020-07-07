@@ -118,7 +118,7 @@ func generateTwitchHelp(user string, allSoundDirectories []string) string {
 
 func notify() {
 	// TODO: Make this play over top other sound effects
-	// playSfx(soundsDir + "/chat-notification.ogg")
+	playSfx(soundsDir + "/chat-notification.ogg")
 }
 
 func executeTwitchMessage(message twitch.PrivateMessage, allSoundDirectories []string) bool {
