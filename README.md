@@ -26,3 +26,7 @@ I like playing comedic sound effects while streaming videogames but couldn't fin
 ### Does this work on any operating systems besides Windows?
 
 No. Not at the moment at least. The library I'm using for capturing global keyboard shortcuts is Windows-specific and my use case only involves Windows.
+
+### Why does the program instantly crash when I open `screm.exe`?
+
+You likely don't have a valid `config.toml` created. Try running the program with `go run main.go` to get a more helpful error.
