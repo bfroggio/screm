@@ -215,6 +215,8 @@ func playSfx(path string) error {
 	go func() error {
 		streamer, format, err := decodeFile(path)
 		if err != nil {
+			// TODO: Bubble this error up somehow
+			log.Println("Error decoding file:", err.Error())
 			return err
 		}
 		defer streamer.Close()
@@ -232,9 +234,7 @@ func playSfx(path string) error {
 			case <-done:
 				return nil
 			case <-pause:
-				speaker.Lock()
-				ctrl.Paused = !ctrl.Paused
-				speaker.Unlock()
+				return nil
 			}
 		}
 	}()
