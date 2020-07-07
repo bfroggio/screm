@@ -119,8 +119,7 @@ func generateTwitchHelp(user string, allSoundDirectories []string) string {
 }
 
 func notify() {
-	// TODO: Make this play over top other sound effects
-	playSfx(soundsDir + "/chat-notification.ogg")
+	playSfx(soundsDir+"/chat-notification.ogg", false)
 }
 
 func executeTwitchMessage(message twitch.PrivateMessage, allSoundDirectories []string) bool {
@@ -204,15 +203,15 @@ func randomSfx(directory string) func() {
 			log.Println("Error reading file")
 		}
 
-		err = playSfx(randomFile)
+		err = playSfx(randomFile, true)
 		if err != nil {
 			log.Println("Error playing file:", err.Error())
 		}
 	}
 }
 
-func playSfx(path string) error {
-	go func() error {
+func playSfx(path string, replace bool) error {
+	go func(replace bool) error {
 		streamer, format, err := decodeFile(path)
 		if err != nil {
 			// TODO: Bubble this error up somehow
@@ -225,6 +224,10 @@ func playSfx(path string) error {
 		lastSampleRate = format.SampleRate
 
 		log.Println("Playing " + path)
+
+		if replace {
+			pause <- true
+		}
 
 		ctrl := &beep.Ctrl{Streamer: beep.Seq(resampled, beep.Callback(func() { done <- true })), Paused: false}
 		speaker.Play(ctrl)
@@ -240,7 +243,7 @@ func playSfx(path string) error {
 				return nil
 			}
 		}
-	}()
+	}(replace)
 
 	return nil
 }
