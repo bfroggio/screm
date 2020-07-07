@@ -212,30 +212,34 @@ func randomSfx(directory string) func() {
 }
 
 func playSfx(path string) error {
-	streamer, format, err := decodeFile(path)
-	if err != nil {
-		return err
-	}
-	defer streamer.Close()
-
-	resampled := beep.Resample(4, lastSampleRate, format.SampleRate, streamer)
-	lastSampleRate = format.SampleRate
-
-	log.Println("Playing " + path)
-
-	ctrl := &beep.Ctrl{Streamer: beep.Seq(resampled, beep.Callback(func() { done <- true })), Paused: false}
-	speaker.Play(ctrl)
-
-	for {
-		select {
-		case <-done:
-			return nil
-		case <-pause:
-			speaker.Lock()
-			ctrl.Paused = !ctrl.Paused
-			speaker.Unlock()
+	go func() error {
+		streamer, format, err := decodeFile(path)
+		if err != nil {
+			return err
 		}
-	}
+		defer streamer.Close()
+
+		resampled := beep.Resample(4, lastSampleRate, format.SampleRate, streamer)
+		lastSampleRate = format.SampleRate
+
+		log.Println("Playing " + path)
+
+		ctrl := &beep.Ctrl{Streamer: beep.Seq(resampled, beep.Callback(func() { done <- true })), Paused: false}
+		speaker.Play(ctrl)
+
+		for {
+			select {
+			case <-done:
+				return nil
+			case <-pause:
+				speaker.Lock()
+				ctrl.Paused = !ctrl.Paused
+				speaker.Unlock()
+			}
+		}
+	}()
+
+	return nil
 }
 
 func decodeFile(path string) (beep.StreamSeekCloser, beep.Format, error) {
