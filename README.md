@@ -30,3 +30,16 @@ No. Not at the moment at least. The library I'm using for capturing global keybo
 ### Why does the program instantly crash when I open `screm.exe`?
 
 You likely don't have a valid `config.toml` created. Try running the program with `go run main.go` to get a more helpful error.
+
+### The Windows Sound Mixer can't change the output device of `screm.exe`.
+
+I know. It's a bug somewhere in the audio library used by Screm Bot 3000. Follow the steps below to fix it every time you launch `screm.exe`. If it doesn't work the first time, try again. The workaround's fiddly.
+
+1. Open "Sound Mixer"
+1. Change your default sound output device (the dropdown near the top of the page) from its current device (e.g. "USB Sound Card") to whatever device you want Screm Bot 3000 to output to (e.g. "VoiceMeeter Input")
+1. Start `screm.exe`
+1. Play a sound effect with a keyboard shortcut
+1. While the sound effect is playing:
+	1. Switch `screm.exe`'s output to your desired output (e.g. "VoiceMeeter Input")
+	1. Change the default sound output to the previous value (e.g. "USB Sound Card")
+1. Verify that sounds from various programs are going through your desired outputs
