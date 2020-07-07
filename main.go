@@ -28,7 +28,7 @@ var quit = make(chan bool)
 var lastSampleRate beep.SampleRate
 var done = make(chan bool)
 
-func main() {
+func main_bak() {
 	rand.Seed(time.Now().Unix())
 
 	err := readConfigFile()
