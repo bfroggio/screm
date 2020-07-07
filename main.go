@@ -28,7 +28,7 @@ var quit = make(chan bool)
 var lastSampleRate beep.SampleRate
 var done = make(chan bool)
 
-func main_bak() {
+func main() {
 	rand.Seed(time.Now().Unix())
 
 	err := readConfigFile()
@@ -197,6 +197,8 @@ func configureSpeaker() error {
 
 func randomSfx(directory string) func() {
 	return func() {
+		log.Println("Playing a random sound effect from", directory)
+
 		randomFile, err := getRandomFile(soundsDir + "/" + directory)
 		if err != nil {
 			log.Println("Error reading file")
