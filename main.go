@@ -237,6 +237,7 @@ func playSfx(path string) error {
 				speaker.Lock()
 				ctrl.Streamer = nil
 				speaker.Unlock()
+				return nil
 			}
 		}
 	}()
