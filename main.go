@@ -184,6 +184,10 @@ func configureSpeaker() error {
 	speaker.Init(format.SampleRate, format.SampleRate.N(time.Second/10))
 	lastSampleRate = format.SampleRate
 
+	done := make(chan bool)
+	speaker.Play(beep.Seq(streamer, beep.Callback(func() { done <- true })))
+	<-done // Block until the sound file is done playing
+
 	return nil
 }
 
@@ -219,9 +223,7 @@ func playSfx(path string) error {
 	log.Println("Playing " + path)
 
 	done := make(chan bool)
-
 	speaker.Play(beep.Seq(resampled, beep.Callback(func() { done <- true })))
-
 	<-done // Block until the sound file is done playing
 
 	return nil
