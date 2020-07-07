@@ -27,6 +27,7 @@ var hkey = hotkey.New()
 var quit = make(chan bool)
 var lastSampleRate beep.SampleRate
 var done = make(chan bool)
+var pause = make(chan bool)
 
 func main() {
 	rand.Seed(time.Now().Unix())
@@ -142,22 +143,21 @@ func executeTwitchMessage(message twitch.PrivateMessage, allSoundDirectories []s
 }
 
 func configureShortcuts() error {
-	fmt.Println("Push Shift+Alt+Q to quit")
 	hkey.Register(hotkey.Shift+hotkey.Alt, 'Q', func() {
 		fmt.Println("Quit")
 		quit <- true
 	})
 
 	hkey.Register(hotkey.Alt, hotkey.SPACE, func() {
-		if len(done) == 0 {
-			done <- true
-		}
+		pause <- true
 	})
 
 	err := registerShortcuts()
 	if err != nil {
 		return err
 	}
+
+	fmt.Println("Listening for keyboard shortcuts. Press Shift+Alt+Q to quit.")
 
 	return nil
 }
@@ -223,10 +223,19 @@ func playSfx(path string) error {
 
 	log.Println("Playing " + path)
 
-	speaker.Play(beep.Seq(resampled, beep.Callback(func() { done <- true })))
-	<-done
+	ctrl := &beep.Ctrl{Streamer: beep.Seq(resampled, beep.Callback(func() { done <- true })), Paused: false}
+	speaker.Play(ctrl)
 
-	return nil
+	for {
+		select {
+		case <-done:
+			return nil
+		case <-pause:
+			speaker.Lock()
+			ctrl.Paused = !ctrl.Paused
+			speaker.Unlock()
+		}
+	}
 }
 
 func decodeFile(path string) (beep.StreamSeekCloser, beep.Format, error) {
