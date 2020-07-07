@@ -228,13 +228,12 @@ func playSfx(path string, replace bool) error {
 
 		if replace {
 			speaker.Lock()
-			ctrl = &beep.Ctrl{Streamer: beep.Seq(resampled, beep.Callback(func() { done <- true })), Paused: false}
+			ctrl.Paused = true
 			speaker.Unlock()
+			ctrl = &beep.Ctrl{Streamer: beep.Seq(resampled, beep.Callback(func() { done <- true })), Paused: false}
 			speaker.Play(ctrl)
 		} else {
-			speaker.Lock()
 			newCtrl := &beep.Ctrl{Streamer: beep.Seq(resampled, beep.Callback(func() { done <- true })), Paused: false}
-			speaker.Unlock()
 			speaker.Play(newCtrl)
 		}
 
