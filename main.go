@@ -25,6 +25,7 @@ const soundsDir string = "sounds"
 
 var hkey = hotkey.New()
 var quit = make(chan bool)
+var lastSampleRate beep.SampleRate
 
 func main() {
 	rand.Seed(time.Now().Unix())
@@ -48,6 +49,11 @@ func main() {
 		}
 	}()
 
+	err = configureSpeaker()
+	if err != nil {
+		log.Fatal("Could not configure speaker:", err.Error())
+	}
+
 	<-quit // Keep the program alive until we kill it with a keyboard shortcut
 }
 
@@ -55,8 +61,8 @@ func readConfigFile() error {
 	viper.SetConfigName("config") // name of config file (without extension)
 	viper.SetConfigType("toml")   // REQUIRED if the config file does not have the extension in the name
 	viper.AddConfigPath(".")      // optionally look for config in the working directory
-	err := viper.ReadInConfig()   // Find and read the config file
-	if err != nil {               // Handle errors reading the config file
+	err := viper.ReadInConfig()
+	if err != nil {
 		return err
 	}
 
@@ -166,6 +172,21 @@ func registerShortcuts() error {
 	return nil
 }
 
+func configureSpeaker() error {
+	path := soundsDir + "/startup.mp3"
+
+	streamer, format, err := decodeFile(path)
+	if err != nil {
+		return err
+	}
+	defer streamer.Close()
+
+	speaker.Init(format.SampleRate, format.SampleRate.N(time.Second/10))
+	lastSampleRate = format.SampleRate
+
+	return nil
+}
+
 func randomSfx(directory string) func() {
 	return func() {
 		randomFile, err := getRandomFile(soundsDir + "/" + directory)
@@ -181,33 +202,27 @@ func randomSfx(directory string) func() {
 }
 
 func playSfx(path string) error {
-	// TODO: Figure out a cleaner way to stop a sound effect and play another (this Goroutine is dirty)
-	go func() error {
-		// TODO: Figure out a better way to stop playing sound effects
-		if len(path) == 0 {
-			path = soundsDir + "/silence.ogg"
-		}
+	// TODO: Figure out a better way to stop playing sound effects
+	if len(path) == 0 {
+		path = soundsDir + "/silence.ogg"
+	}
 
-		streamer, format, err := decodeFile(path)
-		if err != nil {
-			return err
-		}
-		defer streamer.Close()
+	streamer, format, err := decodeFile(path)
+	if err != nil {
+		return err
+	}
+	defer streamer.Close()
 
-		sr := format.SampleRate * 2
-		speaker.Init(sr, sr.N(time.Second/10))
+	resampled := beep.Resample(4, lastSampleRate, format.SampleRate, streamer)
+	lastSampleRate = format.SampleRate
 
-		resampled := beep.Resample(4, format.SampleRate, sr, streamer)
+	log.Println("Playing " + path)
 
-		log.Println("Playing " + path)
+	done := make(chan bool)
 
-		done := make(chan bool)
-		speaker.Play(beep.Seq(resampled, beep.Callback(func() { done <- true })))
+	speaker.Play(beep.Seq(resampled, beep.Callback(func() { done <- true })))
 
-		<-done // Block until the sound file is done playing
-
-		return nil
-	}()
+	<-done // Block until the sound file is done playing
 
 	return nil
 }
