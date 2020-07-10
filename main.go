@@ -350,8 +350,8 @@ func getRandomFile(directory string) (string, error) {
 	if len(playCounts[directory]) == 0 || len(playCounts[directory]) != len(allFiles) {
 		playCounts[directory] = make(map[string]int)
 
-		for i, file := range allFiles {
-			playCounts[directory][file.Name()] = 0
+		for _, file := range allFiles {
+			playCounts[directory][directory+"/"+file.Name()] = 0
 		}
 	}
 
@@ -363,13 +363,14 @@ func getRandomFile(directory string) (string, error) {
 		// Sort the list of play counts by number of plays
 		sortedPlayCounts := sortMapToSlice(playCounts[directory])
 
-		log.Println(sortedPlayCounts)
-
-		selectionSize := len(sortedPlayCounts) / 2
+		selectionSize := len(sortedPlayCounts) / 3
+		if selectionSize == 0 {
+			selectionSize = 1
+		}
 		log.Println("Selection size:", selectionSize, len(sortedPlayCounts))
 		for randomFile == recentlyPlayedSounds[directory] {
 			randomIndex := rand.Intn(selectionSize)
-			randomFile = directory + "/" + allFiles[randomIndex].Name()
+			randomFile = sortedPlayCounts[randomIndex].Key
 			// Prevent infinite loop conditions caused by directories with a small number of files
 			if selectionSize < len(allFiles) {
 				selectionSize = selectionSize + 1
@@ -382,25 +383,21 @@ func getRandomFile(directory string) (string, error) {
 	recentlyPlayedSounds[directory] = randomFile
 	playCounts[directory][randomFile] = playCounts[directory][randomFile] + 1
 
-	log.Println(recentlyPlayedSounds)
-	log.Println(playCounts)
-
 	return randomFile, nil
 }
 
 // This is gross but I'm too lazy to fix it
 func sortMapToSlice(m map[string]int) []keyValue {
-	log.Println("Starting to sort map", m)
 	var ss []keyValue
 	for k, v := range m {
 		ss = append(ss, keyValue{k, v})
 	}
 
 	sort.Slice(ss, func(i, j int) bool {
-		return ss[i].Value > ss[j].Value
+		return ss[i].Value < ss[j].Value
 	})
 
-	log.Println("Returning sorted slice", ss)
+	log.Println("Sorted", ss)
 
 	return ss
 }
