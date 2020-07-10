@@ -5,6 +5,7 @@ import (
 	"log"
 	"math/rand"
 	"strings"
+	"sync"
 	"time"
 	"unicode"
 
@@ -22,13 +23,18 @@ import (
 )
 
 const soundsDir string = "sounds"
+const twitchHelpCommand string = "sounds"
 
 var hkey = hotkey.New()
 var quit = make(chan bool)
+var mutex = &sync.Mutex{}
 var lastSampleRate beep.SampleRate
 var done = make(chan bool)
 var pause = make(chan bool)
 var ctrl = &beep.Ctrl{}
+
+var welcomedUsers = map[string]int{}
+var recentlyPlayedSounds = map[string]string{}
 
 func main() {
 	rand.Seed(time.Now().Unix())
@@ -87,14 +93,21 @@ func configureTwitch() error {
 
 	client.OnUserJoinMessage(func(message twitch.UserJoinMessage) {
 		if len(viper.GetString("twitch_secret")) > 0 {
-			twitchHelp := generateTwitchHelp(message.User, allSoundDirectories)
-			client.Say(viper.GetString("twitch_username"), twitchHelp)
+			twitchWelcome := generateTwitchWelcome(message.User)
+			if len(twitchWelcome) > 0 {
+				client.Say(viper.GetString("twitch_username"), twitchWelcome)
+			}
 		}
 	})
 
 	client.OnPrivateMessage(func(message twitch.PrivateMessage) {
 		if !executeTwitchMessage(message, allSoundDirectories) {
-			notify()
+			if strings.ToLower(message.Message) == twitchHelpCommand {
+				twitchHelp := generateTwitchHelp(allSoundDirectories)
+				client.Say(viper.GetString("twitch_username"), twitchHelp)
+			} else {
+				notify(message)
+			}
 		}
 	})
 
@@ -108,9 +121,19 @@ func configureTwitch() error {
 	return nil
 }
 
-func generateTwitchHelp(user string, allSoundDirectories []string) string {
+func generateTwitchWelcome(user string) string {
+	_, userAlreadyWelcomed := welcomedUsers[user]
+	if !userAlreadyWelcomed {
+		welcomedUsers[user] = 1
+		return "Welcome, " + user + "! Type \"" + twitchHelpCommand + "\" to play sound effects!"
+	}
+
+	return ""
+}
+
+func generateTwitchHelp(allSoundDirectories []string) string {
 	// TODO: Limit to only approved users (by message.User.Name)
-	helpMessage := "Welcome, " + user + "! You can play a sound effect in the stream by typing keywords: "
+	helpMessage := "You can play a sound effect in the stream by typing keywords: "
 
 	for _, soundCategory := range allSoundDirectories {
 		helpMessage = helpMessage + soundCategory[2:] + " (" + string(soundCategory[0]) + "), "
@@ -119,8 +142,11 @@ func generateTwitchHelp(user string, allSoundDirectories []string) string {
 	return strings.TrimSuffix(helpMessage, ", ")
 }
 
-func notify() {
-	playSfx(soundsDir+"/chat-notification.ogg", false)
+func notify(message twitch.PrivateMessage) {
+	// Don't notify me of my own messages
+	if message.User.ID != viper.GetString("twitch_username") {
+		playSfx(soundsDir+"/chat-notification.ogg", false)
+	}
 }
 
 func executeTwitchMessage(message twitch.PrivateMessage, allSoundDirectories []string) bool {
@@ -186,8 +212,10 @@ func configureSpeaker() error {
 	}
 	defer streamer.Close()
 
+	mutex.Lock()
 	speaker.Init(format.SampleRate, format.SampleRate.N(time.Second/10))
 	lastSampleRate = format.SampleRate
+	mutex.Unlock()
 
 	speaker.Play(beep.Seq(streamer, beep.Callback(func() { done <- true })))
 	<-done // Block until the sound file is done playing
@@ -221,8 +249,10 @@ func playSfx(path string, replace bool) error {
 		}
 		defer streamer.Close()
 
+		mutex.Lock()
 		resampled := beep.Resample(4, lastSampleRate, format.SampleRate, streamer)
 		lastSampleRate = format.SampleRate
+		mutex.Unlock()
 
 		log.Println("Playing " + path)
 
@@ -308,6 +338,18 @@ func getRandomFile(directory string) (string, error) {
 		return "", err
 	}
 
-	randomIndex := rand.Intn(len(allFiles))
-	return directory + "/" + allFiles[randomIndex].Name(), nil
+	randomFile := recentlyPlayedSounds[directory]
+	// Don't pick the same file twice in a row
+	if len(allFiles) > 1 {
+		for randomFile == recentlyPlayedSounds[directory] {
+			randomIndex := rand.Intn(len(allFiles))
+			randomFile = directory + "/" + allFiles[randomIndex].Name()
+		}
+
+		recentlyPlayedSounds[directory] = randomFile
+	} else {
+		randomFile = directory + "/" + allFiles[0].Name()
+	}
+
+	return randomFile, nil
 }
