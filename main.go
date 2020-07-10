@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"math/rand"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -33,8 +34,15 @@ var done = make(chan bool)
 var pause = make(chan bool)
 var ctrl = &beep.Ctrl{}
 
-var welcomedUsers = map[string]int{}
-var recentlyPlayedSounds = map[string]string{}
+var welcomedUsers = make(map[string]int)
+var recentlyPlayedSounds = make(map[string]string)
+var playCounts = make(map[string]map[string]int)
+
+// Used for sorting maps
+type keyValue struct {
+	Key   string
+	Value int
+}
 
 func main() {
 	rand.Seed(time.Now().Unix())
@@ -338,18 +346,61 @@ func getRandomFile(directory string) (string, error) {
 		return "", err
 	}
 
-	randomFile := recentlyPlayedSounds[directory]
-	// Don't pick the same file twice in a row
-	if len(allFiles) > 1 {
-		for randomFile == recentlyPlayedSounds[directory] {
-			randomIndex := rand.Intn(len(allFiles))
-			randomFile = directory + "/" + allFiles[randomIndex].Name()
-		}
+	// Initialize the map of play counts if needed
+	if len(playCounts[directory]) == 0 || len(playCounts[directory]) != len(allFiles) {
+		playCounts[directory] = make(map[string]int)
 
-		recentlyPlayedSounds[directory] = randomFile
+		for i, file := range allFiles {
+			playCounts[directory][file.Name()] = 0
+		}
+	}
+
+	// Don't play the same sound twice in a row
+	randomFile := recentlyPlayedSounds[directory]
+
+	// Only pick a random file if there's more than one file in the directory
+	if len(allFiles) > 1 {
+		// Sort the list of play counts by number of plays
+		sortedPlayCounts := sortMapToSlice(playCounts[directory])
+
+		log.Println(sortedPlayCounts)
+
+		selectionSize := len(sortedPlayCounts) / 2
+		log.Println("Selection size:", selectionSize, len(sortedPlayCounts))
+		for randomFile == recentlyPlayedSounds[directory] {
+			randomIndex := rand.Intn(selectionSize)
+			randomFile = directory + "/" + allFiles[randomIndex].Name()
+			// Prevent infinite loop conditions caused by directories with a small number of files
+			if selectionSize < len(allFiles) {
+				selectionSize = selectionSize + 1
+			}
+		}
 	} else {
 		randomFile = directory + "/" + allFiles[0].Name()
 	}
 
+	recentlyPlayedSounds[directory] = randomFile
+	playCounts[directory][randomFile] = playCounts[directory][randomFile] + 1
+
+	log.Println(recentlyPlayedSounds)
+	log.Println(playCounts)
+
 	return randomFile, nil
+}
+
+// This is gross but I'm too lazy to fix it
+func sortMapToSlice(m map[string]int) []keyValue {
+	log.Println("Starting to sort map", m)
+	var ss []keyValue
+	for k, v := range m {
+		ss = append(ss, keyValue{k, v})
+	}
+
+	sort.Slice(ss, func(i, j int) bool {
+		return ss[i].Value > ss[j].Value
+	})
+
+	log.Println("Returning sorted slice", ss)
+
+	return ss
 }
