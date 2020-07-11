@@ -186,6 +186,11 @@ func executeTwitchMessage(message twitch.PrivateMessage, allSoundDirectories []s
 func isAuthorized(user string) bool {
 	allAuthorizedUsers := viper.GetStringSlice("twitch_authorized_users")
 
+	// Let all users play sound effects if we haven't specified a list of authorized users
+	if len(allAuthorizedUsers) == 0 {
+		return true
+	}
+
 	if strings.ToLower(user) == strings.ToLower(viper.GetString("twitch_username")) {
 		return true
 	}
