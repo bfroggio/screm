@@ -240,7 +240,7 @@ func registerShortcuts() error {
 }
 
 func startupSound() error {
-	path := soundsDir + "/startup.mp3"
+	path := soundsDir + "/startup.wav"
 	playSfx(path)
 	return nil
 }
