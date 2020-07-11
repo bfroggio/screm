@@ -102,7 +102,7 @@ func configureTwitch() error {
 
 	client.OnUserJoinMessage(func(message twitch.UserJoinMessage) {
 		if len(viper.GetString("twitch_secret")) > 0 {
-			if isAuthorized(message.User.ID) {
+			if isAuthorized(message.User) {
 				twitchWelcome := generateTwitchWelcome(message.User)
 				if len(twitchWelcome) > 0 {
 					client.Say(viper.GetString("twitch_username"), twitchWelcome)
