@@ -112,7 +112,7 @@ func configureTwitch() error {
 	})
 
 	client.OnPrivateMessage(func(message twitch.PrivateMessage) {
-		if isAuthorized(message.User.ID) {
+		if isAuthorized(message.User.Name) {
 			if !executeTwitchMessage(message, allSoundDirectories) {
 				if strings.ToLower(message.Message) == twitchHelpCommand {
 					twitchHelp := generateTwitchHelp(allSoundDirectories)
