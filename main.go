@@ -24,15 +24,17 @@ import (
 )
 
 const soundsDir string = "sounds"
+
+// TODO: Make this configurable in case people have a directory named "sounds"
 const twitchHelpCommand string = "sounds"
 
 var hkey = hotkey.New()
 var quit = make(chan bool)
-var mutex = &sync.Mutex{}
-var lastSampleRate beep.SampleRate
 var done = make(chan bool)
 var pause = make(chan bool)
 var ctrl = &beep.Ctrl{}
+var mutex = &sync.Mutex{}
+var lastSampleRate beep.SampleRate
 
 var welcomedUsers = make(map[string]int)
 var recentlyPlayedSounds = make(map[string]string)
@@ -66,7 +68,7 @@ func main() {
 		}
 	}()
 
-	err = configureSpeaker()
+	err = startupSound()
 	if err != nil {
 		log.Fatal("Could not configure speaker:", err.Error())
 	}
@@ -113,8 +115,6 @@ func configureTwitch() error {
 			if strings.ToLower(message.Message) == twitchHelpCommand {
 				twitchHelp := generateTwitchHelp(allSoundDirectories)
 				client.Say(viper.GetString("twitch_username"), twitchHelp)
-			} else {
-				notify(message)
 			}
 		}
 	})
@@ -148,13 +148,6 @@ func generateTwitchHelp(allSoundDirectories []string) string {
 	}
 
 	return strings.TrimSuffix(helpMessage, ", ")
-}
-
-func notify(message twitch.PrivateMessage) {
-	// Don't notify me of my own messages
-	if message.User.ID != viper.GetString("twitch_username") {
-		playSfx(soundsDir+"/chat-notification.ogg", false)
-	}
 }
 
 func executeTwitchMessage(message twitch.PrivateMessage, allSoundDirectories []string) bool {
@@ -211,23 +204,9 @@ func registerShortcuts() error {
 	return nil
 }
 
-func configureSpeaker() error {
+func startupSound() error {
 	path := soundsDir + "/startup.mp3"
-
-	streamer, format, err := decodeFile(path)
-	if err != nil {
-		return err
-	}
-	defer streamer.Close()
-
-	mutex.Lock()
-	speaker.Init(format.SampleRate, format.SampleRate.N(time.Second/10))
-	lastSampleRate = format.SampleRate
-	mutex.Unlock()
-
-	speaker.Play(beep.Seq(streamer, beep.Callback(func() { done <- true })))
-	<-done // Block until the sound file is done playing
-
+	playSfx(path)
 	return nil
 }
 
@@ -240,40 +219,39 @@ func randomSfx(directory string) func() {
 			log.Println("Error reading file")
 		}
 
-		err = playSfx(randomFile, true)
+		err = playSfx(randomFile)
 		if err != nil {
 			log.Println("Error playing file:", err.Error())
 		}
 	}
 }
 
-func playSfx(path string, replace bool) error {
-	go func(replace bool) error {
+func playSfx(path string) error {
+	// Use a Goroutine so keyboard shortcuts work during sound playback
+	go func() error {
+		mutex.Lock()
 		streamer, format, err := decodeFile(path)
 		if err != nil {
 			// TODO: Bubble this error up somehow
-			log.Println("Error decoding file:", err.Error())
+			log.Println("Error decoding sound file:", err.Error)
 			return err
 		}
 		defer streamer.Close()
 
-		mutex.Lock()
-		resampled := beep.Resample(4, lastSampleRate, format.SampleRate, streamer)
-		lastSampleRate = format.SampleRate
-		mutex.Unlock()
-
 		log.Println("Playing " + path)
 
-		if replace {
-			speaker.Lock()
-			ctrl.Paused = true
-			speaker.Unlock()
-			ctrl = &beep.Ctrl{Streamer: beep.Seq(resampled, beep.Callback(func() { done <- true })), Paused: false}
-			speaker.Play(ctrl)
-		} else {
-			newCtrl := &beep.Ctrl{Streamer: beep.Seq(resampled, beep.Callback(func() { done <- true })), Paused: false}
-			speaker.Play(newCtrl)
+		if lastSampleRate == 0 || lastSampleRate != format.SampleRate {
+			log.Println("Creating new speaker")
+			speaker.Init(format.SampleRate, format.SampleRate.N(time.Second/10))
+			lastSampleRate = format.SampleRate
 		}
+
+		speaker.Lock()
+		ctrl.Paused = true
+		ctrl = &beep.Ctrl{Streamer: beep.Seq(streamer, beep.Callback(func() { done <- true })), Paused: false}
+		speaker.Unlock()
+		speaker.Play(ctrl)
+		mutex.Unlock()
 
 		for {
 			select {
@@ -286,7 +264,7 @@ func playSfx(path string, replace bool) error {
 				return nil
 			}
 		}
-	}(replace)
+	}()
 
 	return nil
 }
@@ -367,7 +345,7 @@ func getRandomFile(directory string) (string, error) {
 		if selectionSize == 0 {
 			selectionSize = 1
 		}
-		log.Println("Selection size:", selectionSize, len(sortedPlayCounts))
+
 		for randomFile == recentlyPlayedSounds[directory] {
 			randomIndex := rand.Intn(selectionSize)
 			randomFile = sortedPlayCounts[randomIndex].Key
@@ -396,8 +374,6 @@ func sortMapToSlice(m map[string]int) []keyValue {
 	sort.Slice(ss, func(i, j int) bool {
 		return ss[i].Value < ss[j].Value
 	})
-
-	log.Println("Sorted", ss)
 
 	return ss
 }
