@@ -34,7 +34,6 @@ var done = make(chan bool)
 var pause = make(chan bool)
 var ctrl = &beep.Ctrl{}
 var mutex = &sync.Mutex{}
-var lastSampleRate beep.SampleRate
 
 var welcomedUsers = make(map[string]int)
 var recentlyPlayedSounds = make(map[string]string)
@@ -240,11 +239,7 @@ func playSfx(path string) error {
 
 		log.Println("Playing " + path)
 
-		if lastSampleRate == 0 || lastSampleRate != format.SampleRate {
-			log.Println("Creating new speaker")
-			speaker.Init(format.SampleRate, format.SampleRate.N(time.Second/10))
-			lastSampleRate = format.SampleRate
-		}
+		speaker.Init(format.SampleRate, format.SampleRate.N(time.Second/10))
 
 		speaker.Lock()
 		ctrl.Paused = true
