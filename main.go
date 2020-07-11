@@ -102,18 +102,22 @@ func configureTwitch() error {
 
 	client.OnUserJoinMessage(func(message twitch.UserJoinMessage) {
 		if len(viper.GetString("twitch_secret")) > 0 {
-			twitchWelcome := generateTwitchWelcome(message.User)
-			if len(twitchWelcome) > 0 {
-				client.Say(viper.GetString("twitch_username"), twitchWelcome)
+			if isAuthorized(message.User.ID) {
+				twitchWelcome := generateTwitchWelcome(message.User)
+				if len(twitchWelcome) > 0 {
+					client.Say(viper.GetString("twitch_username"), twitchWelcome)
+				}
 			}
 		}
 	})
 
 	client.OnPrivateMessage(func(message twitch.PrivateMessage) {
-		if !executeTwitchMessage(message, allSoundDirectories) {
-			if strings.ToLower(message.Message) == twitchHelpCommand {
-				twitchHelp := generateTwitchHelp(allSoundDirectories)
-				client.Say(viper.GetString("twitch_username"), twitchHelp)
+		if isAuthorized(message.User.ID) {
+			if !executeTwitchMessage(message, allSoundDirectories) {
+				if strings.ToLower(message.Message) == twitchHelpCommand {
+					twitchHelp := generateTwitchHelp(allSoundDirectories)
+					client.Say(viper.GetString("twitch_username"), twitchHelp)
+				}
 			}
 		}
 	})
@@ -132,14 +136,13 @@ func generateTwitchWelcome(user string) string {
 	_, userAlreadyWelcomed := welcomedUsers[user]
 	if !userAlreadyWelcomed {
 		welcomedUsers[user] = 1
-		return "Welcome, " + user + "! Type \"" + twitchHelpCommand + "\" to play sound effects!"
+		return "Welcome, " + user + "! You're authorized to play sound effects! Type \"" + twitchHelpCommand + "\" to start!"
 	}
 
 	return ""
 }
 
 func generateTwitchHelp(allSoundDirectories []string) string {
-	// TODO: Limit to only approved users (by message.User.Name)
 	helpMessage := "You can play a sound effect in the stream by typing keywords: "
 
 	for _, soundCategory := range allSoundDirectories {
@@ -150,10 +153,10 @@ func generateTwitchHelp(allSoundDirectories []string) string {
 }
 
 func executeTwitchMessage(message twitch.PrivateMessage, allSoundDirectories []string) bool {
+	// TODO: Have some sort of backoff for how quickly Twitch can trigger sound effects
 	messageContent := strings.ToLower(message.Message)
 	log.Println("Got message:", messageContent)
 
-	// TODO: Limit to only approved users (by message.User.Name)
 	for _, soundCategory := range allSoundDirectories {
 		categoryShortcut := strings.ToLower(string(soundCategory[0]))
 		categoryName := strings.ToLower(string(soundCategory[2:]))
@@ -161,6 +164,22 @@ func executeTwitchMessage(message twitch.PrivateMessage, allSoundDirectories []s
 		if messageContent == categoryShortcut || messageContent == categoryName {
 			log.Println("Playing a \"" + soundCategory + "\" sound at " + message.User.Name + "'s request")
 			randomSfx(soundCategory)()
+			return true
+		}
+	}
+
+	return false
+}
+
+func isAuthorized(user string) bool {
+	allAuthorizedUsers := viper.GetStringSlice("twitch_authorized_users")
+
+	if strings.ToLower(user) == strings.ToLower(viper.GetString("twitch_username")) {
+		return true
+	}
+
+	for _, authorizedUser := range allAuthorizedUsers {
+		if strings.ToLower(user) == strings.ToLower(authorizedUser) {
 			return true
 		}
 	}
