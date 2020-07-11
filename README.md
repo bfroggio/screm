@@ -44,3 +44,7 @@ I know. It's a bug somewhere in the audio library used by Screm Bot 3000. Follow
 	1. Switch `screm.exe`'s output to your desired output (e.g. "VoiceMeeter Input")
 	1. Change the default sound output to the previous value (e.g. "USB Sound Card")
 1. Verify that sounds from various programs are going through your desired outputs
+
+### Some of my sound files sound like a whale or chipmunk...?
+
+Yeah, so, there's this thing in audio files called a "sample rate". It's basically how fast the sound data gets played to the speaker. The [audio library I'm using](https://github.com/faiface/beep) is *supposed* to support different sample rates across your collection of sound files, but I've tested, retested, refactored, and cried over why that's not working so instead I hardcoded the library to expect 44100 as the sample rate and put a `fix-sample-rates.sh` script in `./sounds` that forces all audio files in a provided directory (e.g. `./fix-sample-rates.sh e-epic`) to 44100 `.wav`. That's the only way I've found to prevent crashes. Writing Screm Bot 3000 in Go was a mistake.

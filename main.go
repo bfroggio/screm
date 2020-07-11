@@ -67,7 +67,7 @@ func main() {
 		}
 	}()
 
-	err = startupSound()
+	err = configureSpeaker()
 	if err != nil {
 		log.Fatal("Could not configure speaker:", err.Error())
 	}
@@ -239,8 +239,14 @@ func registerShortcuts() error {
 	return nil
 }
 
-func startupSound() error {
+func configureSpeaker() error {
 	path := soundsDir + "/startup.wav"
+	_, format, err := decodeFile(path)
+	if err != nil {
+		return err
+	}
+	speaker.Init(format.SampleRate, format.SampleRate.N(time.Second/10))
+
 	playSfx(path)
 	return nil
 }
@@ -265,7 +271,7 @@ func playSfx(path string) error {
 	// Use a Goroutine so keyboard shortcuts work during sound playback
 	go func() error {
 		mutex.Lock()
-		streamer, format, err := decodeFile(path)
+		streamer, _, err := decodeFile(path)
 		if err != nil {
 			// TODO: Bubble this error up somehow
 			log.Println("Error decoding sound file:", err.Error)
@@ -275,12 +281,8 @@ func playSfx(path string) error {
 
 		log.Println("Playing " + path)
 
-		speaker.Init(format.SampleRate, format.SampleRate.N(time.Second/10))
-
-		speaker.Lock()
 		ctrl.Paused = true
 		ctrl = &beep.Ctrl{Streamer: beep.Seq(streamer, beep.Callback(func() { done <- true })), Paused: false}
-		speaker.Unlock()
 		speaker.Play(ctrl)
 		mutex.Unlock()
 
