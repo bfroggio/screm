@@ -112,14 +112,9 @@ func configureTwitch() error {
 	})
 
 	client.OnPrivateMessage(func(message twitch.PrivateMessage) {
-		if isAuthorized(message.User.Name) {
-			response := executeTwitchMessage(message, allSoundDirectories)
-			if len(response) > 0 {
-				client.Say(viper.GetString("twitch_username"), response)
-			} else if strings.ToLower(message.Message) == twitchHelpCommand {
-				twitchHelp := generateTwitchHelp(allSoundDirectories)
-				client.Say(viper.GetString("twitch_username"), twitchHelp)
-			}
+		response := executeTwitchMessage(message, allSoundDirectories)
+		if len(response) > 0 && len(viper.GetString("twitch_secret")) > 0 {
+			client.Say(viper.GetString("twitch_username"), response)
 		}
 	})
 
@@ -143,6 +138,10 @@ func generateTwitchWelcome(user string) string {
 	return ""
 }
 
+func generateTwitchUnauthorizedMessage(user string) string {
+	return "Sorry, " + user + ", you're not authorized to play sound effects."
+}
+
 func generateTwitchHelp(allSoundDirectories []string) string {
 	helpMessage := "You can play a sound effect in the stream by typing keywords: "
 
@@ -158,14 +157,26 @@ func executeTwitchMessage(message twitch.PrivateMessage, allSoundDirectories []s
 	messageContent := strings.ToLower(message.Message)
 	log.Println("Got message:", messageContent)
 
+	if strings.ToLower(message.Message) == twitchHelpCommand {
+		if isAuthorized(message.User.Name) {
+			return generateTwitchHelp(allSoundDirectories)
+		} else {
+			return generateTwitchUnauthorizedMessage(message.User.DisplayName)
+		}
+	}
+
 	for _, soundCategory := range allSoundDirectories {
 		categoryShortcut := strings.ToLower(string(soundCategory[0]))
 		categoryName := strings.ToLower(string(soundCategory[2:]))
 
 		if messageContent == categoryShortcut || messageContent == categoryName {
-			log.Println("Playing a \"" + soundCategory + "\" sound at " + message.User.Name + "'s request")
-			randomSfx(soundCategory)()
-			return "Playing a \"" + soundCategory[2:] + "\" sound for " + message.User.DisplayName + "! Please wait..."
+			if isAuthorized(message.User.Name) {
+				log.Println("Playing a \"" + soundCategory + "\" sound at " + message.User.Name + "'s request")
+				randomSfx(soundCategory)()
+				return "Playing a \"" + soundCategory[2:] + "\" sound for " + message.User.DisplayName + "! Please wait..."
+			} else {
+				return generateTwitchUnauthorizedMessage(message.User.DisplayName)
+			}
 		}
 	}
 
