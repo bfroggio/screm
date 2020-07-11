@@ -113,11 +113,12 @@ func configureTwitch() error {
 
 	client.OnPrivateMessage(func(message twitch.PrivateMessage) {
 		if isAuthorized(message.User.Name) {
-			if !executeTwitchMessage(message, allSoundDirectories) {
-				if strings.ToLower(message.Message) == twitchHelpCommand {
-					twitchHelp := generateTwitchHelp(allSoundDirectories)
-					client.Say(viper.GetString("twitch_username"), twitchHelp)
-				}
+			response := executeTwitchMessage(message, allSoundDirectories)
+			if len(response) > 0 {
+				client.Say(viper.GetString("twitch_username"), response)
+			} else if strings.ToLower(message.Message) == twitchHelpCommand {
+				twitchHelp := generateTwitchHelp(allSoundDirectories)
+				client.Say(viper.GetString("twitch_username"), twitchHelp)
 			}
 		}
 	})
@@ -152,7 +153,7 @@ func generateTwitchHelp(allSoundDirectories []string) string {
 	return strings.TrimSuffix(helpMessage, ", ")
 }
 
-func executeTwitchMessage(message twitch.PrivateMessage, allSoundDirectories []string) bool {
+func executeTwitchMessage(message twitch.PrivateMessage, allSoundDirectories []string) string {
 	// TODO: Have some sort of backoff for how quickly Twitch can trigger sound effects
 	messageContent := strings.ToLower(message.Message)
 	log.Println("Got message:", messageContent)
@@ -164,11 +165,11 @@ func executeTwitchMessage(message twitch.PrivateMessage, allSoundDirectories []s
 		if messageContent == categoryShortcut || messageContent == categoryName {
 			log.Println("Playing a \"" + soundCategory + "\" sound at " + message.User.Name + "'s request")
 			randomSfx(soundCategory)()
-			return true
+			return "Playing a \"" + soundCategory[2:] + "\" sound for " + message.User.DisplayName + "! Please wait..."
 		}
 	}
 
-	return false
+	return ""
 }
 
 func isAuthorized(user string) bool {
