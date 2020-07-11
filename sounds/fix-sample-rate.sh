@@ -7,8 +7,8 @@
         extension="${filename#*.}"
         short_filename="${filename%.*}"
 
-        ffmpeg -i "$filename" -ar 44100 -vn -c:a libvorbis "out.ogg"
+        ffmpeg -i "$filename" -ar 44100 "out.wav"
         rm "$filename"
-        mv "out.ogg" "$short_filename.ogg"
+        mv "out.wav" "$short_filename.wav"
     done
 )
