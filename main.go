@@ -67,6 +67,8 @@ func main() {
 		}
 	}()
 
+	time.Sleep(1 * time.Second)
+
 	err = configureSpeaker()
 	if err != nil {
 		log.Fatal("Could not configure speaker:", err.Error())
