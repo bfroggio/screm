@@ -18,9 +18,10 @@ I like playing comedic sound effects while streaming videogames but couldn't fin
 
 `config.toml` should be in the same directory as the `screm.exe` binary. There are a few properties that can go in your `config.toml` file. Properties listed below are optional unless otherwise noted. See `sample-config.toml` for an example with fake configuration values.
 
-- `twitch_username` (required): The username for your Twitch account/channel. Screm Bot 3000 can't read your channel's chat messages without this
-- `twitch_secret`: The OAUTH token needed for Screm Bot 3000 to post messages to your Twitch chat
-- `twitch_authorized_users`: A list of Twitch usernames for users authorized to trigger sound effects on your stream from Twitch chat
+- `twitch_username` (required): The username for your Twitch account/channel. Screm Bot 3000 can't read your channel's chat messages without this.
+- `twitch_bot_username` (required): The username for the Screm chat bot. Can be the same as `twitch_username`.
+- `twitch_secret`: The OAUTH token for the `twitch_bot_username` account. Needed to post messages to your Twitch chat.
+- `twitch_authorized_users`: A list of Twitch usernames for users authorized to trigger sound effects on your stream from Twitch chat.
 
 ## FAQ
 
