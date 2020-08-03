@@ -106,7 +106,7 @@ func configureTwitch() error {
 			if isAuthorized(message.User) {
 				twitchWelcome := generateTwitchWelcome(message.User)
 				if len(twitchWelcome) > 0 {
-					client.Say(viper.GetString("twitch_bot_username"), twitchWelcome)
+					client.Say(viper.GetString("twitch_username"), twitchWelcome)
 				}
 			}
 		}
@@ -115,7 +115,7 @@ func configureTwitch() error {
 	client.OnPrivateMessage(func(message twitch.PrivateMessage) {
 		response := executeTwitchMessage(message, allSoundDirectories)
 		if len(response) > 0 && len(viper.GetString("twitch_secret")) > 0 {
-			client.Say(viper.GetString("twitch_bot_username"), response)
+			client.Say(viper.GetString("twitch_username"), response)
 		}
 	})
 
@@ -133,7 +133,7 @@ func generateTwitchWelcome(user string) string {
 	_, userAlreadyWelcomed := welcomedUsers[user]
 	if !userAlreadyWelcomed {
 		welcomedUsers[user] = 1
-		return "Welcome, " + user + "! You're authorized to play sound effects! Type \"" + twitchCommand + "\" to start!"
+		return "Welcome, " + user + "! Type \"" + twitchCommand + "\" to play a sound effect on stream!"
 	}
 
 	return ""
@@ -144,7 +144,7 @@ func generateTwitchUnauthorizedMessage(user string) string {
 }
 
 func generateTwitchHelp(allSoundDirectories []string) string {
-	helpMessage := "You can play a sound effect in the stream by typing \"" + twitchCommand + "\" followed by keywords (e.g. \"" + twitchCommand + " epic\" or \"" + twitchCommand + " e\" for short): "
+	helpMessage := "You can play a sound effect on stream by typing \"" + twitchCommand + "\" followed by keywords (e.g. \"" + twitchCommand + " epic\" or \"" + twitchCommand + " e\" for short): "
 
 	for _, soundCategory := range allSoundDirectories {
 		helpMessage = helpMessage + soundCategory[2:] + " (" + string(soundCategory[0]) + "), "
@@ -161,9 +161,9 @@ func executeTwitchMessage(message twitch.PrivateMessage, allSoundDirectories []s
 	if strings.ToLower(message.Message) == twitchCommand {
 		if isAuthorized(message.User.Name) {
 			return generateTwitchHelp(allSoundDirectories)
-		} else {
-			return generateTwitchUnauthorizedMessage(message.User.DisplayName)
 		}
+
+		return generateTwitchUnauthorizedMessage(message.User.DisplayName)
 	} else if strings.HasPrefix(message.Message, twitchCommand) {
 		messageContent := strings.TrimPrefix(strings.ToLower(message.Message), twitchCommand+" ")
 
@@ -176,9 +176,9 @@ func executeTwitchMessage(message twitch.PrivateMessage, allSoundDirectories []s
 					log.Println("Playing a \"" + soundCategory + "\" sound at " + message.User.Name + "'s request")
 					randomSfx(soundCategory)()
 					return "Playing a \"" + soundCategory[2:] + "\" sound for " + message.User.DisplayName + "! Please wait..."
-				} else {
-					return generateTwitchUnauthorizedMessage(message.User.DisplayName)
 				}
+
+				return generateTwitchUnauthorizedMessage(message.User.DisplayName)
 			}
 		}
 	}
