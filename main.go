@@ -1,9 +1,12 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"math/rand"
+	"net/http"
 	"sort"
 	"strings"
 	"sync"
@@ -24,8 +27,13 @@ import (
 )
 
 const soundsDir string = "sounds"
-
 const twitchCommand string = "!sounds"
+const botCheckerAPI string = "https://api.twitchinsights.net/v1/bots/all"
+
+type botCheckerResponse struct {
+	Bots  [][]interface{} `json:"bots"`
+	Total int             `json:"_total"`
+}
 
 var hkey = hotkey.New()
 var quit = make(chan bool)
@@ -37,6 +45,7 @@ var mutex = &sync.Mutex{}
 var welcomedUsers = make(map[string]int)
 var recentlyPlayedSounds = make(map[string]string)
 var playCounts = make(map[string]map[string]int)
+var allBots = botCheckerResponse{}
 
 // Used for sorting maps
 type keyValue struct {
@@ -63,6 +72,14 @@ func main() {
 		err := configureShortcuts()
 		if err != nil {
 			log.Fatal("Could not configure shortcuts:", err.Error())
+		}
+	}()
+
+	go func() {
+		err := configureBotChecker()
+		if err != nil {
+			// Don't end the program if we can't connect to the bot checker API since it's not essential
+			log.Print("Could not connect to bot checker API:", err.Error())
 		}
 	}()
 
@@ -131,7 +148,7 @@ func configureTwitch() error {
 
 func generateTwitchWelcome(user string) string {
 	_, userAlreadyWelcomed := welcomedUsers[user]
-	if !userAlreadyWelcomed {
+	if !userAlreadyWelcomed && !isBot(user) {
 		welcomedUsers[user] = 1
 		return "Welcome, " + user + "! Type \"" + twitchCommand + "\" to play a sound effect on stream!"
 	}
@@ -412,4 +429,44 @@ func sortMapToSlice(m map[string]int) []keyValue {
 	})
 
 	return ss
+}
+
+func configureBotChecker() error {
+	httpClient := http.Client{}
+
+	req, err := http.NewRequest(http.MethodGet, botCheckerAPI, nil)
+	if err != nil {
+		return err
+	}
+
+	res, err := httpClient.Do(req)
+	if err != nil {
+		return err
+	}
+
+	if res.Body != nil {
+		defer res.Body.Close()
+	}
+
+	body, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(body, &allBots)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func isBot(username string) bool {
+	for _, bot := range allBots.Bots {
+		if bot[0] == username {
+			return true
+		}
+	}
+
+	return false
 }
