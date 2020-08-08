@@ -22,6 +22,7 @@ I like playing comedic sound effects while streaming videogames but couldn't fin
 - `twitch_bot_username` (required): The username for the Screm chat bot. Can be the same as `twitch_username`.
 - `twitch_secret`: The OAUTH token for the `twitch_bot_username` account. Needed to post messages to your Twitch chat.
 - `twitch_authorized_users`: A list of Twitch usernames for users authorized to trigger sound effects on your stream from Twitch chat.
+- `welcome_message_enabled`: Whether or not Screm Bot 3000 should automatically welcome non-bot viewers to your channel (defaulted to `false`).
 
 ## FAQ
 

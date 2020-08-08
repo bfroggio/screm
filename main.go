@@ -27,7 +27,7 @@ import (
 )
 
 const soundsDir string = "sounds"
-const twitchCommand string = "!sounds"
+const twitchCommand string = "!soundeffect"
 const botCheckerAPI string = "https://api.twitchinsights.net/v1/bots/all"
 
 type botCheckerResponse struct {
@@ -119,11 +119,13 @@ func configureTwitch() error {
 	}
 
 	client.OnUserJoinMessage(func(message twitch.UserJoinMessage) {
-		if len(viper.GetString("twitch_secret")) > 0 {
-			if isAuthorized(message.User) {
-				twitchWelcome := generateTwitchWelcome(message.User)
-				if len(twitchWelcome) > 0 {
-					client.Say(viper.GetString("twitch_username"), twitchWelcome)
+		if viper.GetBool("welcome_message_enabled") {
+			if len(viper.GetString("twitch_secret")) > 0 {
+				if isAuthorized(message.User) {
+					twitchWelcome := generateTwitchWelcome(message.User)
+					if len(twitchWelcome) > 0 {
+						client.Say(viper.GetString("twitch_username"), twitchWelcome)
+					}
 				}
 			}
 		}
@@ -294,7 +296,7 @@ func playSfx(path string) error {
 		streamer, _, err := decodeFile(path)
 		if err != nil {
 			// TODO: Bubble this error up somehow
-			log.Println("Error decoding sound file:", err.Error)
+			log.Println("Error decoding sound file:", err.Error())
 			return err
 		}
 		defer streamer.Close()
@@ -312,6 +314,7 @@ func playSfx(path string) error {
 				return nil
 			case <-pause:
 				speaker.Lock()
+				ctrl.Paused = true
 				ctrl.Streamer = nil
 				speaker.Unlock()
 				return nil
