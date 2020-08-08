@@ -233,7 +233,9 @@ func configureShortcuts() error {
 	})
 
 	hkey.Register(hotkey.Alt, hotkey.SPACE, func() {
-		pause <- true
+		if ctrl.Streamer != nil {
+			pause <- true
+		}
 	})
 
 	err := registerShortcuts()
