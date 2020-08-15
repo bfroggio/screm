@@ -27,7 +27,7 @@ import (
 )
 
 const soundsDir string = "sounds"
-const twitchCommand string = "!soundeffect"
+const twitchCommand string = "!sound"
 const botCheckerAPI string = "https://api.twitchinsights.net/v1/bots/all"
 
 type botCheckerResponse struct {
@@ -134,7 +134,11 @@ func configureTwitch() error {
 	client.OnPrivateMessage(func(message twitch.PrivateMessage) {
 		response := executeTwitchMessage(message, allSoundDirectories)
 		if len(response) > 0 && len(viper.GetString("twitch_secret")) > 0 {
-			client.Say(viper.GetString("twitch_username"), response)
+			responseLines := strings.Split(response, "\\n")
+			for _, line := range responseLines {
+				log.Println("Saying:", line)
+				client.Say(viper.GetString("twitch_username"), line)
+			}
 		}
 	})
 
@@ -163,18 +167,45 @@ func generateTwitchUnauthorizedMessage(user string) string {
 }
 
 func generateTwitchHelp(allSoundDirectories []string) string {
-	helpMessage := "You can play a sound effect on stream by typing \"" + twitchCommand + "\" followed by keywords (e.g. \"" + twitchCommand + " epic\" or \"" + twitchCommand + " e\" for short): "
+	helpMessage := "You can play a sound effect on stream with commands like:\\n"
 
-	for _, soundCategory := range allSoundDirectories {
-		helpMessage = helpMessage + soundCategory[2:] + " (" + string(soundCategory[0]) + "), "
+	for _, soundCategory := range getXRandomItems(allSoundDirectories, 2) {
+		helpMessage = helpMessage + twitchCommand + " " + soundCategory[2:] + "\\n"
 	}
 
-	return strings.TrimSuffix(helpMessage, ", ")
+	return strings.TrimSuffix(helpMessage, "\\n")
+}
+
+func getXRandomItems(list []string, itemCount int) []string {
+	allItems := []string{}
+
+	for len(allItems) < itemCount {
+		randomItem := list[rand.Intn(len(list))]
+		if !contains(allItems, randomItem) {
+			allItems = append(allItems, randomItem)
+		}
+	}
+
+	return allItems
+}
+
+func contains(s []string, e string) bool {
+	for _, a := range s {
+		if a == e {
+			return true
+		}
+	}
+	return false
 }
 
 func executeTwitchMessage(message twitch.PrivateMessage, allSoundDirectories []string) string {
 	// TODO: Have some sort of backoff for how quickly Twitch can trigger sound effects
 	log.Println("Got message:", message.Message)
+
+	// Ignore messages from the bot
+	if message.User.Name == viper.GetString("twitch_bot_username") {
+		return ""
+	}
 
 	// Show a help message if no argument is passed to the command
 	if strings.ToLower(message.Message) == twitchCommand {
@@ -192,9 +223,9 @@ func executeTwitchMessage(message twitch.PrivateMessage, allSoundDirectories []s
 
 			if messageContent == categoryShortcut || messageContent == categoryName {
 				if isAuthorized(message.User.Name) {
-					log.Println("Playing a \"" + soundCategory + "\" sound at " + message.User.Name + "'s request")
+					log.Println("Playing a \"" + soundCategory + "\" sound at " + message.User.DisplayName + "'s request")
 					randomSfx(soundCategory)()
-					return "Playing a \"" + soundCategory[2:] + "\" sound for " + message.User.DisplayName + "! Please wait..."
+					return "Playing a \"" + soundCategory[2:] + "\" sound for " + message.User.DisplayName + "!"
 				}
 
 				return generateTwitchUnauthorizedMessage(message.User.DisplayName)
