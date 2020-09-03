@@ -68,12 +68,14 @@ func main() {
 		}
 	}()
 
-	go func() {
-		err := configureShortcuts()
-		if err != nil {
-			log.Fatal("Could not configure shortcuts:", err.Error())
-		}
-	}()
+	if !viper.GetBool("disable_keyboard_shortcuts") {
+		go func() {
+			err := configureShortcuts()
+			if err != nil {
+				log.Fatal("Could not configure shortcuts:", err.Error())
+			}
+		}()
+	}
 
 	go func() {
 		err := configureBotChecker()

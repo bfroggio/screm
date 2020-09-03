@@ -23,6 +23,7 @@ I like playing comedic sound effects while streaming videogames but couldn't fin
 - `twitch_secret`: The OAUTH token for the `twitch_bot_username` account. Needed to post messages to your Twitch chat.
 - `twitch_authorized_users`: A list of Twitch usernames for users authorized to trigger sound effects on your stream from Twitch chat.
 - `welcome_message_enabled`: Whether or not Screm Bot 3000 should automatically welcome non-bot viewers to your channel (defaulted to `false`).
+- `disable_keyboard_shortcuts`: If you don't want to automatically configure keyboard shortcuts (because you use another soundboard program like an Elgato Stream Deck), you can set `disable_keyboard_shortcuts` to `true` (defaults to `false`) and Screm Bot 3000 will only listen for Twitch chat messages.
 
 ## FAQ
 
