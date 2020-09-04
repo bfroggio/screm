@@ -4,7 +4,7 @@
 
 ## Overview
 
-I like playing comedic sound effects while streaming videogames but couldn't find a sound board program that let me configure my sound effects and keyboard shortcuts with Git version control while also randomizing the sound effects that were played (it's more fun if I'm surprised by the sound effect as well as my viewers). Thus, Screm Bot 3000 was born!
+I like playing comedic sound effects while streaming videogames but couldn't find a sound board program that let me configure my sound effects and keyboard shortcuts with Git version control while also randomizing the sound effects that were played (it's more fun if I'm surprised by the sound effect as well as my viewers). I also wanted my Twitch chat to be able to trigger sound effects via a chat command (`!sfx`). Thus, Screm Bot 3000 was born!
 
 ## Usage
 

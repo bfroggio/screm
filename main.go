@@ -27,7 +27,7 @@ import (
 )
 
 const soundsDir string = "sounds"
-const twitchCommand string = "!sound"
+const twitchCommand string = "!sfx"
 const botCheckerAPI string = "https://api.twitchinsights.net/v1/bots/all"
 
 type botCheckerResponse struct {
