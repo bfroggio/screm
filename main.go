@@ -68,14 +68,13 @@ func main() {
 		}
 	}()
 
-	if !viper.GetBool("disable_keyboard_shortcuts") {
-		go func() {
-			err := configureShortcuts()
-			if err != nil {
-				log.Fatal("Could not configure shortcuts:", err.Error())
-			}
-		}()
-	}
+	// Only registers sound directory shortcuts if configured (see child functions)
+	go func() {
+		err := configureShortcuts()
+		if err != nil {
+			log.Fatal("Could not configure shortcuts:", err.Error())
+		}
+	}()
 
 	go func() {
 		err := configureBotChecker()
@@ -276,9 +275,11 @@ func configureShortcuts() error {
 		}
 	})
 
-	err := registerShortcuts()
-	if err != nil {
-		return err
+	if !viper.GetBool("disable_keyboard_shortcuts") {
+		err := registerShortcuts()
+		if err != nil {
+			return err
+		}
 	}
 
 	fmt.Println("Listening for keyboard shortcuts. Press Shift+Alt+Q to quit.")
