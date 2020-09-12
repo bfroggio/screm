@@ -27,7 +27,7 @@ import (
 )
 
 const soundsDir string = "sounds"
-const twitchCommand string = "!sfx"
+const twitchHelpCommand string = "!sfx"
 const botCheckerAPI string = "https://api.twitchinsights.net/v1/bots/all"
 
 type botCheckerResponse struct {
@@ -158,7 +158,7 @@ func generateTwitchWelcome(user string) string {
 	_, userAlreadyWelcomed := welcomedUsers[user]
 	if !userAlreadyWelcomed && !isBot(user) {
 		welcomedUsers[user] = 1
-		return "Welcome, " + user + "! Type \"" + twitchCommand + "\" to play a sound effect on stream!"
+		return "Welcome, " + user + "! Type \"" + twitchHelpCommand + "\" to play a sound effect on stream!"
 	}
 
 	return ""
@@ -171,8 +171,11 @@ func generateTwitchUnauthorizedMessage(user string) string {
 func generateTwitchHelp(allSoundDirectories []string) string {
 	helpMessage := "You can play a sound effect on stream with commands like:\\n"
 
-	for _, soundCategory := range getXRandomItems(allSoundDirectories, 2) {
-		helpMessage = helpMessage + twitchCommand + " " + soundCategory[2:] + "\\n"
+	for _, soundCategory := range getXRandomItems(allSoundDirectories, 3) {
+		// Don't tell people about local-only sound categorites (marked with a _ at the end of the dir name)
+		if !strings.HasSuffix(soundCategory, "_") {
+			helpMessage = helpMessage + soundCategory[2:] + "\\n"
+		}
 	}
 
 	return strings.TrimSuffix(helpMessage, "\\n")
@@ -210,27 +213,29 @@ func executeTwitchMessage(message twitch.PrivateMessage, allSoundDirectories []s
 	}
 
 	// Show a help message if no argument is passed to the command
-	if strings.ToLower(message.Message) == twitchCommand {
+	if strings.ToLower(message.Message) == twitchHelpCommand {
 		if isAuthorized(message.User.Name) {
 			return generateTwitchHelp(allSoundDirectories)
 		}
 
 		return generateTwitchUnauthorizedMessage(message.User.DisplayName)
-	} else if strings.HasPrefix(message.Message, twitchCommand) {
-		messageContent := strings.TrimPrefix(strings.ToLower(message.Message), twitchCommand+" ")
+	} else if strings.HasPrefix(message.Message, "!") {
+		messageContent := strings.TrimPrefix(strings.ToLower(message.Message), "!")
 
 		for _, soundCategory := range allSoundDirectories {
-			categoryShortcut := strings.ToLower(string(soundCategory[0]))
 			categoryName := strings.ToLower(string(soundCategory[2:]))
 
-			if messageContent == categoryShortcut || messageContent == categoryName {
-				if isAuthorized(message.User.Name) {
-					log.Println("Playing a \"" + soundCategory + "\" sound at " + message.User.DisplayName + "'s request")
-					randomSfx(soundCategory)()
-					return "Playing a \"" + soundCategory[2:] + "\" sound for " + message.User.DisplayName + "!"
-				}
+			// Don't allow triggering of local-only sound categories (marked with a _ at the end of the dir name)
+			if !strings.HasSuffix(categoryName, "_") {
+				if messageContent == categoryName {
+					if isAuthorized(message.User.Name) {
+						log.Println("Playing a \"" + soundCategory + "\" sound at " + message.User.DisplayName + "'s request")
+						randomSfx(soundCategory)()
+						return "Playing a \"" + soundCategory[2:] + "\" sound for " + message.User.DisplayName + "!"
+					}
 
-				return generateTwitchUnauthorizedMessage(message.User.DisplayName)
+					return generateTwitchUnauthorizedMessage(message.User.DisplayName)
+				}
 			}
 		}
 	}
