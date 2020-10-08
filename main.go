@@ -7,6 +7,7 @@ import (
 	"log"
 	"math/rand"
 	"net/http"
+	"path/filepath"
 	"sort"
 	"strings"
 	"sync"
@@ -26,26 +27,31 @@ import (
 	"os"
 )
 
-const soundsDir string = "sounds"
-const twitchHelpCommand string = "!sfx"
-const botCheckerAPI string = "https://api.twitchinsights.net/v1/bots/all"
+const (
+	soundsDir         string = "sounds"
+	twitchHelpCommand string = "!sfx"
+	botCheckerAPI     string = "https://api.twitchinsights.net/v1/bots/all"
+	aliasFileName     string = "aliases.json"
+)
+
+var (
+	hkey  = hotkey.New()
+	quit  = make(chan bool)
+	done  = make(chan bool)
+	pause = make(chan bool)
+	ctrl  = &beep.Ctrl{}
+	mutex = &sync.Mutex{}
+
+	welcomedUsers        = make(map[string]int)
+	recentlyPlayedSounds = make(map[string]string)
+	playCounts           = make(map[string]map[string]int)
+	allBots              = botCheckerResponse{}
+)
 
 type botCheckerResponse struct {
 	Bots  [][]interface{} `json:"bots"`
 	Total int             `json:"_total"`
 }
-
-var hkey = hotkey.New()
-var quit = make(chan bool)
-var done = make(chan bool)
-var pause = make(chan bool)
-var ctrl = &beep.Ctrl{}
-var mutex = &sync.Mutex{}
-
-var welcomedUsers = make(map[string]int)
-var recentlyPlayedSounds = make(map[string]string)
-var playCounts = make(map[string]map[string]int)
-var allBots = botCheckerResponse{}
 
 // Used for sorting maps
 type keyValue struct {
@@ -107,7 +113,7 @@ func readConfigFile() error {
 }
 
 func configureTwitch() error {
-	allSoundDirectories, err := getSoundDirectories()
+	allSoundDirectories, nonAliasSounds, err := getSoundDirectories()
 	if err != nil {
 		return err
 	}
@@ -133,7 +139,7 @@ func configureTwitch() error {
 	})
 
 	client.OnPrivateMessage(func(message twitch.PrivateMessage) {
-		response := executeTwitchMessage(message, allSoundDirectories)
+		response := executeTwitchMessage(message, allSoundDirectories, nonAliasSounds)
 		if len(response) > 0 && len(viper.GetString("twitch_secret")) > 0 {
 			responseLines := strings.Split(response, "\\n")
 			for _, line := range responseLines {
@@ -167,10 +173,10 @@ func generateTwitchUnauthorizedMessage(user string) string {
 	return "Sorry, " + user + ", you're not authorized to play sound effects. Ask " + viper.GetString("twitch_username") + " nicely to add you to the authorized list!"
 }
 
-func generateTwitchHelp(allSoundDirectories []string) string {
+func generateTwitchHelp(soundOptions []string) string {
 	helpMessage := "You can play a sound effect on stream with commands like:\\n"
 
-	for _, soundCategory := range getXRandomItems(allSoundDirectories, 3) {
+	for _, soundCategory := range getXRandomItems(soundOptions, 3) {
 		// Don't tell people about local-only sound categorites (marked with a _ at the end of the dir name)
 		if !strings.HasSuffix(soundCategory, "_") {
 			helpMessage = helpMessage + "!" + soundCategory[2:] + "\\n"
@@ -202,7 +208,7 @@ func contains(s []string, e string) bool {
 	return false
 }
 
-func executeTwitchMessage(message twitch.PrivateMessage, allSoundDirectories []string) string {
+func executeTwitchMessage(message twitch.PrivateMessage, allSoundDirectories map[string]string, nonAliasSounds []string) string {
 	// TODO: Have some sort of backoff for how quickly Twitch can trigger sound effects
 	log.Println("Got message:", message.Message)
 
@@ -214,29 +220,25 @@ func executeTwitchMessage(message twitch.PrivateMessage, allSoundDirectories []s
 	// Show a help message if no argument is passed to the command
 	if strings.ToLower(message.Message) == twitchHelpCommand {
 		if isAuthorized(message.User.Name) {
-			return generateTwitchHelp(allSoundDirectories)
+			return generateTwitchHelp(nonAliasSounds)
 		}
 
 		return generateTwitchUnauthorizedMessage(message.User.DisplayName)
 	} else if strings.HasPrefix(message.Message, "!") {
-		messageContent := strings.TrimPrefix(strings.ToLower(message.Message), "!")
-
-		for _, soundCategory := range allSoundDirectories {
-			categoryName := strings.ToLower(string(soundCategory[2:]))
-
-			// Don't allow triggering of local-only sound categories (marked with a _ at the end of the dir name)
-			if !strings.HasSuffix(categoryName, "_") {
-				if messageContent == categoryName {
-					if isAuthorized(message.User.Name) {
-						log.Println("Playing a \"" + soundCategory + "\" sound at " + message.User.DisplayName + "'s request")
-						randomSfx(soundCategory)()
-						return "Playing a \"" + soundCategory[2:] + "\" sound for " + message.User.DisplayName + "!"
-					}
-
-					return generateTwitchUnauthorizedMessage(message.User.DisplayName)
-				}
-			}
+		category := strings.TrimPrefix(strings.ToLower(message.Message), "!")
+		v, ok := allSoundDirectories[category]
+		if !ok {
+			return ""
 		}
+
+		if !isAuthorized(message.User.Name) {
+			return generateTwitchUnauthorizedMessage(message.User.DisplayName)
+		}
+
+		log.Printf("Playing a %q sound at %s's request.\n", category, message.User.DisplayName)
+		randomSfx(v)()
+		return fmt.Sprintf("Playing a %q sound for %s!", category, message.User.DisplayName)
+
 	}
 
 	return ""
@@ -295,7 +297,7 @@ func registerShortcuts() error {
 
 	for _, dir := range allFiles {
 		if dir.IsDir() {
-			hkey.Register(hotkey.Alt, uint32(unicode.ToUpper(rune(dir.Name()[0]))), randomSfx(dir.Name()))
+			hkey.Register(hotkey.Alt, uint32(unicode.ToUpper(rune(dir.Name()[0]))), randomSfx(filepath.Join(soundsDir, dir.Name())))
 		}
 	}
 
@@ -318,7 +320,7 @@ func randomSfx(directory string) func() {
 	return func() {
 		log.Println("Playing a random sound effect from", directory)
 
-		randomFile, err := getRandomFile(soundsDir + "/" + directory)
+		randomFile, err := getRandomFile(directory)
 		if err != nil {
 			log.Println("Error reading file")
 		}
@@ -398,21 +400,53 @@ func getFiles(directory string) ([]os.FileInfo, error) {
 	return allFiles, nil
 }
 
-func getSoundDirectories() ([]string, error) {
-	categories := []string{}
+// Might as well return a map so we don't have to loop through - that way we can map name -> dir and
+// just include aliases here.
+//
+// The slice retured is a slice of the non-aliases commands, such that the twitch help can still be generated.
+func getSoundDirectories() (map[string]string, []string, error) {
+	categories := map[string]string{}
+	var list []string
 
 	allFiles, err := getFiles(soundsDir)
 	if err != nil {
-		return []string{}, err
+		return categories, list, err
 	}
 
 	for _, file := range allFiles {
-		if file.IsDir() {
-			categories = append(categories, file.Name())
+		// Only read in if not a private sound ("_" suffix)
+		if file.IsDir() && !strings.HasSuffix(file.Name(), "_") {
+			categories[strings.ToLower(file.Name()[2:])] = filepath.Join(soundsDir, file.Name())
+			list = append(list, strings.ToLower(file.Name()[2:]))
 		}
 	}
 
-	return categories, nil
+	log.Println("Getting aliases.")
+	// Integrate aliases.
+	aliases, err := readInAliases()
+	if err != nil {
+		return categories, list, err
+	}
+
+	log.Printf("Aliases: %v", aliases)
+	for k, v := range aliases {
+		dir, ok := categories[k]
+		if !ok {
+			log.Printf("Aliases are configured for sound category %q, but that is an unknown category. Skipping.", k)
+			continue
+		}
+
+		// Add aliaes, if duplicate log and skip.
+		for _, i := range v {
+			if _, ok := categories[i]; ok {
+				log.Printf("Duplicate alias %q. Skipping", i)
+				continue
+			}
+			categories[i] = dir
+		}
+	}
+
+	return categories, list, err
 }
 
 func getRandomFile(directory string) (string, error) {
@@ -513,4 +547,21 @@ func isBot(username string) bool {
 	}
 
 	return false
+}
+
+func readInAliases() (map[string][]string, error) {
+	toReturn := map[string][]string{}
+
+	f, err := ioutil.ReadFile(filepath.Join(soundsDir, aliasFileName))
+	if os.IsNotExist(err) {
+		log.Println("Not configuring aliaes, no alias file found.")
+		return toReturn, nil
+	}
+	if err != nil {
+		log.Printf("Problem reading file: %v\n", err)
+		return toReturn, err
+	}
+
+	err = json.Unmarshal([]byte(f), &toReturn)
+	return toReturn, err
 }
