@@ -1,4 +1,11 @@
 {
-    "goal":  ["nice"],
-    "fail": ["rip"]
+    "goal": [
+        "nice"
+    ],
+    "fail": [
+        "rip"
+    ],
+    "thanks": [
+        "thank-you"
+    ]
 }
