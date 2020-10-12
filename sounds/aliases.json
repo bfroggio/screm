@@ -1,11 +1,40 @@
 {
-    "goal": [
+    "piece-of-garbage": [
+        "garbage"
+    ],
+    "upset": [
+        "angry"
+    ],
+    "success": [
         "nice"
+    ],
+    "epic": [
+        "awesome"
     ],
     "fail": [
         "rip"
     ],
-    "thanks": [
-        "thank-you"
+    "thank-you": [
+        "thanks"
+    ],
+    "wizard-battle": [
+        "wizard"
+    ],
+    "hello": [
+        "hi"
+    ],
+    "goodbye": [
+        "bye"
+    ],
+    "john-cena": [
+        "cena"
+    ],
+    "jingles": [
+        "jingle"
+    ],
+    "screech": [
+        "fledge",
+        "eagle",
+        "hawk"
     ]
 }
