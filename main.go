@@ -179,7 +179,7 @@ func generateTwitchHelp(soundOptions []string) string {
 	for _, soundCategory := range getXRandomItems(soundOptions, 3) {
 		// Don't tell people about local-only sound categorites (marked with a _ at the end of the dir name)
 		if !strings.HasSuffix(soundCategory, "_") {
-			helpMessage = helpMessage + "!" + soundCategory[2:] + "\\n"
+			helpMessage = helpMessage + "!" + soundCategory + "\\n"
 		}
 	}
 
