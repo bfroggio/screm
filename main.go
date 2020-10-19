@@ -306,14 +306,7 @@ func registerShortcuts() error {
 
 func configureSpeaker() error {
 	path := soundsDir + "/startup.wav"
-	_, format, err := decodeFile(path)
-	if err != nil {
-		return err
-	}
-	speaker.Init(format.SampleRate, format.SampleRate.N(time.Second/10))
-
-	playSfx(path)
-	return nil
+	return playSfx(path, true, nil)
 }
 
 func randomSfx(directory string) func() {
@@ -325,18 +318,19 @@ func randomSfx(directory string) func() {
 			log.Println("Error reading file")
 		}
 
-		err = playSfx(randomFile)
+		err = playSfx(randomFile, true, nil)
 		if err != nil {
 			log.Println("Error playing file:", err.Error())
 		}
 	}
 }
 
-func playSfx(path string) error {
+// reinit enables the re initialization of beep speaker with new sample rate.
+func playSfx(path string, reinit bool, doneChan chan struct{}) error {
 	// Use a Goroutine so keyboard shortcuts work during sound playback
-	go func() error {
+	go func(doneChan chan struct{}) error {
 		mutex.Lock()
-		streamer, _, err := decodeFile(path)
+		streamer, format, err := decodeFile(path)
 		if err != nil {
 			// TODO: Bubble this error up somehow
 			log.Println("Error decoding sound file:", err.Error())
@@ -345,25 +339,45 @@ func playSfx(path string) error {
 		defer streamer.Close()
 
 		log.Println("Playing " + path)
+		log.Printf("Sample rate: %v\n", format.SampleRate)
 
 		ctrl.Paused = true
 		ctrl = &beep.Ctrl{Streamer: beep.Seq(streamer, beep.Callback(func() { done <- true })), Paused: false}
+
+		if reinit {
+			// Reset sample rate.... This is working for me in local tests, with different sample rates. I've created a set of tests (not meant for automated running) to validate.
+			// Next step will be real unit tests for this thing.
+			speaker.Init(format.SampleRate, format.SampleRate.N(time.Second/10))
+		}
 		speaker.Play(ctrl)
 		mutex.Unlock()
 
-		for {
-			select {
-			case <-done:
-				return nil
-			case <-pause:
-				speaker.Lock()
-				ctrl.Paused = true
-				ctrl.Streamer = nil
-				speaker.Unlock()
-				return nil
+		// Select will block if no default clause.
+		select {
+		case <-done:
+			// Pass this on if anyone is waiting for it.
+			if doneChan != nil {
+				select {
+				case doneChan <- struct{}{}:
+				default:
+				}
 			}
+			return nil
+		case <-pause:
+			speaker.Lock()
+			ctrl.Paused = true
+			ctrl.Streamer = nil
+			speaker.Unlock()
+			if doneChan != nil {
+				select {
+				case doneChan <- struct{}{}:
+				default:
+
+				}
+			}
+			return nil
 		}
-	}()
+	}(doneChan)
 
 	return nil
 }
