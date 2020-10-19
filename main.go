@@ -334,6 +334,7 @@ func playSfx(path string, reinit bool, doneChan chan struct{}) error {
 		if err != nil {
 			// TODO: Bubble this error up somehow
 			log.Println("Error decoding sound file:", err.Error())
+			mutex.Unlock*()
 			return err
 		}
 		defer streamer.Close()
