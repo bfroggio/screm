@@ -36,5 +36,9 @@
         "fledge",
         "eagle",
         "hawk"
+    ],
+    "black-mamba": [
+        "blackmamba",
+        "mamba"
     ]
 }
