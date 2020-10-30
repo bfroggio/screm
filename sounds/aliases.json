@@ -40,5 +40,16 @@
     "black-mamba": [
         "blackmamba",
         "mamba"
+    ],
+    "halloween": [
+        "scary",
+        "monster",
+        "witch",
+        "skeleton",
+        "ghost",
+        "boo"
+    ],
+    "ghost-busters": [
+        "ghostbusters"
     ]
 }
