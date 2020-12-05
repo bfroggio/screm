@@ -56,5 +56,15 @@
         "ribit",
         "ribbet",
         "ribet"
+    ],
+    "air-horn": [
+        "airhorn"
+    ],
+    "defense-chant": [
+        "defence-chant",
+        "defencechant",
+        "defence",
+        "defensechant",
+        "defense"
     ]
 }
