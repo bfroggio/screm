@@ -16,6 +16,7 @@ import (
 
 	"github.com/MakeNowJust/hotkey"
 	"github.com/faiface/beep"
+	"github.com/faiface/beep/effects"
 	"github.com/faiface/beep/flac"
 	"github.com/faiface/beep/mp3"
 	"github.com/faiface/beep/speaker"
@@ -46,6 +47,8 @@ var (
 	recentlyPlayedSounds = make(map[string]string)
 	playCounts           = make(map[string]map[string]int)
 	allBots              = botCheckerResponse{}
+
+	soundFormat beep.Format
 )
 
 type botCheckerResponse struct {
@@ -330,7 +333,7 @@ func playSfx(path string, reinit bool, doneChan chan struct{}) error {
 	// Use a Goroutine so keyboard shortcuts work during sound playback
 	go func(doneChan chan struct{}) error {
 		mutex.Lock()
-		streamer, format, err := decodeFile(path)
+		streamer, soundFormat, err := decodeFile(path)
 		if err != nil {
 			// TODO: Bubble this error up somehow
 			log.Println("Error decoding sound file:", err.Error())
@@ -340,7 +343,7 @@ func playSfx(path string, reinit bool, doneChan chan struct{}) error {
 		defer streamer.Close()
 
 		log.Println("Playing " + path)
-		log.Printf("Sample rate: %v\n", format.SampleRate)
+		log.Printf("Sample rate: %v\n", soundFormat.SampleRate)
 
 		ctrl.Paused = true
 		ctrl = &beep.Ctrl{Streamer: beep.Seq(streamer, beep.Callback(func() { done <- true })), Paused: false}
@@ -348,9 +351,11 @@ func playSfx(path string, reinit bool, doneChan chan struct{}) error {
 		if reinit {
 			// Reset sample rate.... This is working for me in local tests, with different sample rates. I've created a set of tests (not meant for automated running) to validate.
 			// Next step will be real unit tests for this thing.
-			speaker.Init(format.SampleRate, format.SampleRate.N(time.Second/10))
+			speaker.Init(soundFormat.SampleRate, soundFormat.SampleRate.N(time.Second/10))
 		}
-		speaker.Play(ctrl)
+
+		eq := configEQ(ctrl)
+		speaker.Play(eq) // equalize the sounds
 		mutex.Unlock()
 
 		// Select will block if no default clause.
@@ -579,4 +584,18 @@ func readInAliases() (map[string][]string, error) {
 
 	err = json.Unmarshal([]byte(f), &toReturn)
 	return toReturn, err
+}
+
+// configEQ - Create an equalizer to balance out the sound streams
+// https://octovoid.com/2017/11/04/coding-a-parametric-equalizer-for-audio-applications/
+// To learn about how this balancing works, read the above web page
+func configEQ(sound beep.Streamer) beep.Streamer {
+	eq := effects.NewEqualizer(sound, soundFormat.SampleRate, effects.MonoEqualizerSections{
+		{F0: 200, Bf: 5, GB: 3, G0: 0, G: 8},
+		{F0: 250, Bf: 5, GB: 3, G0: 0, G: 10},
+		{F0: 300, Bf: 5, GB: 3, G0: 0, G: 12},
+		{F0: 350, Bf: 5, GB: 3, G0: 0, G: 14},
+		{F0: 10000, Bf: 8000, GB: 3, G0: 0, G: -100},
+	})
+	return eq
 }
